@@ -22,6 +22,13 @@ Multiplayer battle-royale game around a single shared button. 100 players; any l
 ## Core Requirements (static)
 - 100-player matches, bot backfill, shared button, danger meter, presser-vs-random elimination, kill protection, persistent progression, rank-gated abilities (equip one), cosmetics, stats.
 
+## Implemented (2026-06 / build 4 — UI polish)
+- Match HUD ability bar made compact + panic button/danger resized so it no longer overlaps the hint/patience text.
+- "Play with Friends" (party) moved to the top header next to the Friends button.
+- Abilities screen fixed to a true two-column grid.
+- Cosmetics items enlarged to a two-column layout.
+- Button skins now render distinct patterns (solid / concentric rings / hazard stripes / dot grid / gold shine) via a reusable `SkinSurface`, shown in cosmetics previews and the live match button.
+
 ## Implemented (2026-06 / build 3 — personal danger + retention)
 - **Personal danger meter**: danger is now per-player and only resets when THAT player presses (no longer global). Self-death chance on a press uses the presser's personal danger. Bots press on their own personal danger vs. personality threshold.
 - **Patience reward**: the longer you hold before pressing (or until eliminated), the more bonus XP you bank (capped at 140; forfeited only if you self-destruct on a press). Shown live on the HUD and on the recap.

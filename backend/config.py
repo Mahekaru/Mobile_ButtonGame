@@ -109,11 +109,11 @@ DEFENSIVE_ABILITIES = {a["id"] for a in ABILITIES if a["type"] == "defensive"}
 # ---------------------------------------------------------------------------
 COSMETICS = {
     "button_skin": [
-        {"id": "classic", "name": "Classic Red", "unlock_level": 1, "color": "#FF3B30"},
-        {"id": "amber", "name": "Amber Alert", "unlock_level": 2, "color": "#FF9500"},
-        {"id": "toxic", "name": "Toxic Green", "unlock_level": 4, "color": "#34C759"},
-        {"id": "void", "name": "Void Black", "unlock_level": 6, "color": "#2B2B33"},
-        {"id": "gold", "name": "Golden Panic", "unlock_level": 8, "color": "#FFCC00"},
+        {"id": "classic", "name": "Classic Red", "unlock_level": 1, "color": "#FF3B30", "pattern": "solid"},
+        {"id": "amber", "name": "Amber Rings", "unlock_level": 2, "color": "#FF9500", "pattern": "rings"},
+        {"id": "toxic", "name": "Toxic Hazard", "unlock_level": 4, "color": "#34C759", "pattern": "stripes"},
+        {"id": "void", "name": "Void Grid", "unlock_level": 6, "color": "#2B2B33", "pattern": "dots"},
+        {"id": "gold", "name": "Golden Shine", "unlock_level": 8, "color": "#FFCC00", "pattern": "shine"},
     ],
     "title": [
         {"id": "rookie", "name": "Rookie", "unlock_level": 1},

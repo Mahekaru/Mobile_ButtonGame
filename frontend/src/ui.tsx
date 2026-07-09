@@ -11,8 +11,9 @@ import {
   TextStyle,
 } from "react-native";
 import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
-import { colors, font, radius, space, type } from "@/src/theme";
+import { colors, font, radius, space, type, shade, SKIN_PATTERNS } from "@/src/theme";
 
 type TxtProps = {
   children: React.ReactNode;
@@ -103,6 +104,116 @@ export function StatPill({ label, value, testID }: { label: string; value: strin
 
 export function Divider() {
   return <View style={styles.divider} />;
+}
+
+function PatternOverlay({ pattern, size }: { pattern: string; size: number }) {
+  if (pattern === "rings") {
+    return (
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        {[0.9, 0.62, 0.36].map((f, i) => (
+          <View
+            key={i}
+            style={{
+              position: "absolute",
+              width: size * f,
+              height: size * f,
+              borderRadius: (size * f) / 2,
+              borderWidth: Math.max(2, size * 0.02),
+              borderColor: "rgba(255,255,255,0.28)",
+              top: (size - size * f) / 2,
+              left: (size - size * f) / 2,
+            }}
+          />
+        ))}
+      </View>
+    );
+  }
+  if (pattern === "stripes") {
+    return (
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <View
+            key={i}
+            style={{
+              position: "absolute",
+              width: size * 2,
+              height: size * 0.11,
+              backgroundColor: "rgba(0,0,0,0.22)",
+              top: i * size * 0.26 - size * 0.5,
+              left: -size * 0.5,
+              transform: [{ rotate: "45deg" }],
+            }}
+          />
+        ))}
+      </View>
+    );
+  }
+  if (pattern === "dots") {
+    return (
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        {Array.from({ length: 5 }).flatMap((_, r) =>
+          Array.from({ length: 5 }).map((__, c) => (
+            <View
+              key={`${r}-${c}`}
+              style={{
+                position: "absolute",
+                width: size * 0.06,
+                height: size * 0.06,
+                borderRadius: 99,
+                backgroundColor: "rgba(255,255,255,0.22)",
+                top: size * 0.14 + r * size * 0.18,
+                left: size * 0.14 + c * size * 0.18,
+              }}
+            />
+          )),
+        )}
+      </View>
+    );
+  }
+  if (pattern === "shine") {
+    return (
+      <LinearGradient
+        colors={["rgba(255,255,255,0.5)", "rgba(255,255,255,0)"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+    );
+  }
+  return null;
+}
+
+export function SkinSurface({
+  skinId,
+  color,
+  pattern,
+  size,
+  radius: r,
+  children,
+  style,
+}: {
+  skinId?: string;
+  color: string;
+  pattern?: string;
+  size: number;
+  radius?: number;
+  children?: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const pat = pattern || (skinId ? SKIN_PATTERNS[skinId] : "solid") || "solid";
+  return (
+    <View
+      style={[
+        { width: size, height: size, borderRadius: r ?? size / 2, overflow: "hidden", alignItems: "center", justifyContent: "center" },
+        style,
+      ]}
+    >
+      <LinearGradient colors={[color, shade(color)]} style={StyleSheet.absoluteFill} />
+      <PatternOverlay pattern={pat} size={size} />
+      {children}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

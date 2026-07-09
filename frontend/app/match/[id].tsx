@@ -21,7 +21,7 @@ import { ABILITY_META } from "@/src/catalog";
 import { levelForXp, rankName } from "@/src/progression";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/auth";
-import { GlassCard } from "@/src/ui";
+import { GlassCard, SkinSurface } from "@/src/ui";
 
 export default function MatchScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -40,6 +40,7 @@ export default function MatchScreen() {
   const scale = useSharedValue(1);
 
   const skinColor = SKIN_COLORS[user?.equipped_cosmetics?.button_skin || "classic"] || colors.red;
+  const skinId = user?.equipped_cosmetics?.button_skin || "classic";
 
   const applyState = useCallback((s: any) => {
     offsetRef.current = Date.now() / 1000 - s.server_now;
@@ -209,20 +210,17 @@ export default function MatchScreen() {
           {Math.round(localDanger)}%
         </Text>
 
-        <Animated.View style={[btnStyle, { marginTop: space.xl }]}>
+        <Animated.View style={[btnStyle, { marginTop: space.lg }]}>
           <Pressable testID="panic-button" onPress={onPanic} disabled={!canPress}>
             <View style={[styles.panicOuter, { borderColor: dColor, opacity: canPress ? 1 : 0.5 }]}>
-              <LinearGradient
-                colors={[skinColor, shade(skinColor)]}
-                style={styles.panicInner}
-              >
+              <SkinSurface skinId={skinId} color={skinColor} size={188} radius={94}>
                 <MaterialCommunityIcons
                   name="gesture-tap-button"
-                  size={44}
+                  size={38}
                   color="rgba(255,255,255,0.9)"
                 />
                 <Text style={styles.panicText}>{me?.alive ? "PRESS" : "OUT"}</Text>
-              </LinearGradient>
+              </SkinSurface>
             </View>
           </Pressable>
         </Animated.View>
@@ -487,16 +485,6 @@ function ResultsView({ results, skinColor, username, oldXp, onExit }: any) {
   );
 }
 
-// darken a hex color for gradient depth
-function shade(hex: string): string {
-  const h = hex.replace("#", "");
-  const n = parseInt(h.length === 3 ? h.split("").map((c) => c + c).join("") : h, 16);
-  const r = Math.max(0, ((n >> 16) & 255) - 55);
-  const g = Math.max(0, ((n >> 8) & 255) - 55);
-  const b = Math.max(0, (n & 255) - 55);
-  return `rgb(${r},${g},${b})`;
-}
-
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   hudRow: { flexDirection: "row", paddingHorizontal: space.md, gap: space.sm },
@@ -515,27 +503,20 @@ const styles = StyleSheet.create({
   statNum: { fontFamily: font.displayBold, fontSize: 34, color: colors.onSurface, lineHeight: 38 },
   statCap: { fontFamily: font.medium, fontSize: 9, color: colors.muted, letterSpacing: 0.5 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  dangerLabel: { fontFamily: font.displaySemi, fontSize: type.xl, color: colors.onSurface3, letterSpacing: 4 },
-  dangerNum: { fontFamily: font.displayBold, fontSize: 92, lineHeight: 96 },
+  dangerLabel: { fontFamily: font.displaySemi, fontSize: type.lg, color: colors.onSurface3, letterSpacing: 4 },
+  dangerNum: { fontFamily: font.displayBold, fontSize: 74, lineHeight: 78 },
   panicOuter: {
-    width: 240,
-    height: 240,
-    borderRadius: 120,
+    width: 208,
+    height: 208,
+    borderRadius: 104,
     borderWidth: 4,
-    padding: 10,
+    padding: 8,
     alignItems: "center",
     justifyContent: "center",
   },
-  panicInner: {
-    flex: 1,
-    width: "100%",
-    borderRadius: 120,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  panicText: { fontFamily: font.displayBold, fontSize: 40, color: "#fff", letterSpacing: 2, marginTop: 4 },
-  hint: { fontFamily: font.regular, fontSize: type.base, color: colors.muted, marginTop: space.xl, textAlign: "center", paddingHorizontal: space.xl },
-  holdXp: { fontFamily: font.displaySemi, fontSize: type.base, color: colors.amber, marginTop: space.sm, letterSpacing: 0.5 },
+  panicText: { fontFamily: font.displayBold, fontSize: 32, color: "#fff", letterSpacing: 2, marginTop: 2 },
+  hint: { fontFamily: font.regular, fontSize: type.sm, color: colors.muted, marginTop: space.md, textAlign: "center", paddingHorizontal: space.xl },
+  holdXp: { fontFamily: font.displaySemi, fontSize: type.sm, color: colors.amber, marginTop: space.xs, letterSpacing: 0.5 },
   bottom: { paddingHorizontal: space.xl },
   abilityBtn: {
     flexDirection: "row",
@@ -545,7 +526,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: space.lg,
+    paddingVertical: space.md,
+    paddingHorizontal: space.md,
   },
   abilityArmed: { borderColor: colors.amber, backgroundColor: "#3A2A00" },
   abilityUsed: { opacity: 0.6 },

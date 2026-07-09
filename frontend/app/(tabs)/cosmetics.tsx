@@ -8,6 +8,7 @@ import * as Haptics from "expo-haptics";
 import { colors, font, radius, space, type } from "@/src/theme";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/auth";
+import { SkinSurface } from "@/src/ui";
 
 const CATEGORIES = [
   { key: "button_skin", label: "Skins" },
@@ -59,16 +60,16 @@ export default function CosmeticsScreen() {
 
   const renderPreview = (item: any) => {
     if (active === "button_skin") {
-      return <View style={[styles.skinDot, { backgroundColor: item.color }]} />;
+      return <SkinSurface skinId={item.id} color={item.color} pattern={item.pattern} size={64} />;
     }
     if (active === "icon") {
-      return <MaterialCommunityIcons name={item.icon as any} size={34} color={colors.onSurface} />;
+      return <MaterialCommunityIcons name={item.icon as any} size={46} color={colors.onSurface} />;
     }
     if (active === "title") {
-      return <MaterialCommunityIcons name="format-quote-close" size={30} color={colors.amber} />;
+      return <MaterialCommunityIcons name="format-quote-close" size={42} color={colors.amber} />;
     }
     const effectIcon = active === "victory_anim" ? "party-popper" : "star-four-points";
-    return <MaterialCommunityIcons name={effectIcon as any} size={30} color={colors.amber} />;
+    return <MaterialCommunityIcons name={effectIcon as any} size={42} color={colors.amber} />;
   };
 
   return (
@@ -157,30 +158,30 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.red, borderColor: colors.red },
   chipText: { fontFamily: font.semi, fontSize: type.base, color: colors.muted },
   chipTextActive: { color: "#fff" },
-  grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: space.md },
+  grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
   item: {
-    width: "31%",
+    width: "48%",
     backgroundColor: colors.surface2,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: space.md,
+    padding: space.lg,
     alignItems: "center",
     marginBottom: space.md,
   },
   itemEquipped: { borderColor: colors.success },
   itemLocked: { opacity: 0.6 },
   preview: {
-    width: 60,
-    height: 60,
+    width: 88,
+    height: 88,
     borderRadius: radius.md,
     backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: space.sm,
+    marginBottom: space.md,
   },
-  skinDot: { width: 40, height: 40, borderRadius: 20 },
-  itemName: { fontFamily: font.medium, fontSize: type.sm, color: colors.onSurface, textAlign: "center" },
-  itemTag: { flexDirection: "row", alignItems: "center", gap: 3, marginTop: 4 },
-  itemTagText: { fontFamily: font.semi, fontSize: 10, color: colors.muted, letterSpacing: 0.5, marginTop: 4 },
+  skinDot: { width: 64, height: 64, borderRadius: 32 },
+  itemName: { fontFamily: font.semi, fontSize: type.base, color: colors.onSurface, textAlign: "center" },
+  itemTag: { flexDirection: "row", alignItems: "center", gap: 3, marginTop: space.xs },
+  itemTagText: { fontFamily: font.semi, fontSize: type.sm, color: colors.muted, letterSpacing: 0.5, marginTop: space.xs },
 });

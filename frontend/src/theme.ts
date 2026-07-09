@@ -54,6 +54,25 @@ export const SKIN_COLORS: Record<string, string> = {
   gold: "#FFCC00",
 };
 
+// Button-skin id -> pattern style
+export const SKIN_PATTERNS: Record<string, string> = {
+  classic: "solid",
+  amber: "rings",
+  toxic: "stripes",
+  void: "dots",
+  gold: "shine",
+};
+
+// Darken a hex color for gradient depth
+export function shade(hex: string, amount = 55): string {
+  const h = hex.replace("#", "");
+  const n = parseInt(h.length === 3 ? h.split("").map((c) => c + c).join("") : h, 16);
+  const r = Math.max(0, ((n >> 16) & 255) - amount);
+  const g = Math.max(0, ((n >> 8) & 255) - amount);
+  const b = Math.max(0, (n & 255) - amount);
+  return `rgb(${r},${g},${b})`;
+}
+
 // Interpolate danger color white -> amber -> red as % rises (base 5 .. cap 90)
 export function dangerColor(pct: number): string {
   const t = Math.max(0, Math.min(1, (pct - 5) / 85));

@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
     marginBottom: space.lg,
   },
   noneText: { fontFamily: font.semi, fontSize: type.lg, color: colors.onSurface, flex: 1 },
-  grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: space.md },
+  grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
   card: {
     width: "48%",
     backgroundColor: colors.surface2,
@@ -184,6 +184,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: space.lg,
     minHeight: 168,
+    marginBottom: space.md,
   },
   cardEquipped: { borderColor: colors.amber },
   cardLocked: { opacity: 0.7 },

@@ -169,6 +169,17 @@ export default function PlayScreen() {
             </View>
           </Pressable>
           <Pressable
+            testID="party-btn"
+            onPress={() => {
+              setPartyErr(null);
+              setPartyCode("");
+              partySheet.current?.present();
+            }}
+            style={[styles.iconBtn, { marginRight: space.sm }]}
+          >
+            <MaterialCommunityIcons name="account-multiple-plus" size={20} color={colors.amber} />
+          </Pressable>
+          <Pressable
             testID="friends-btn"
             onPress={() => router.push("/friends")}
             style={styles.iconBtn}
@@ -258,18 +269,6 @@ export default function PlayScreen() {
 
       {/* Floating action buttons */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + 76 }]}>
-        <Pressable
-          testID="party-btn"
-          onPress={() => {
-            setPartyErr(null);
-            setPartyCode("");
-            partySheet.current?.present();
-          }}
-          style={styles.partyBtn}
-        >
-          <MaterialCommunityIcons name="account-multiple-plus" size={20} color={colors.amber} />
-          <Text style={styles.partyText}>PLAY WITH FRIENDS</Text>
-        </Pressable>
         <Pressable
           testID="find-match-btn"
           onPress={findMatch}
