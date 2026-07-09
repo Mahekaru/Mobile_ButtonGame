@@ -99,6 +99,30 @@ ABILITIES = [
         "type": "offensive",
         "desc": "Once per match: trigger two eliminations from a single button press.",
     },
+    {
+        "id": "hide", "name": "Vanish", "icon": "ghost",
+        "unlock_level": 4,
+        "type": "active",
+        "desc": "Once per match: press and become untargetable (and press-safe) for 5 seconds.",
+    },
+    {
+        "id": "overcharge", "name": "Overcharge", "icon": "lightning-bolt",
+        "unlock_level": 6,
+        "type": "active",
+        "desc": "Once per match: TRIPLE your match XP, but your danger rises +15% for the rest of the match.",
+    },
+    {
+        "id": "adrenaline", "name": "Adrenaline", "icon": "run-fast",
+        "unlock_level": 8,
+        "type": "active",
+        "desc": "Once per match: DOUBLE every patience XP you bank from here on.",
+    },
+    {
+        "id": "steady", "name": "Steady Hand", "icon": "timer-sand",
+        "unlock_level": 10,
+        "type": "active",
+        "desc": "Once per match: freeze your danger meter for 6 seconds after you press.",
+    },
 ]
 ABILITY_BY_ID = {a["id"]: a for a in ABILITIES}
 DEFENSIVE_ABILITIES = {a["id"] for a in ABILITIES if a["type"] == "defensive"}
@@ -170,10 +194,14 @@ MAX_LEVEL = 50
 
 
 def xp_for_level(level: int) -> int:
-    """Cumulative XP required to REACH `level` (level 1 = 0 xp)."""
+    """Cumulative XP required to REACH `level` (level 1 = 0 xp).
+
+    Standard quadratic curve — each level costs progressively more so players
+    climb steadily rather than jumping several levels per match.
+    """
     if level <= 1:
         return 0
-    return int(100 * (level - 1) * level / 2)
+    return int(100 * (level - 1) * level)
 
 
 def level_for_xp(xp: int) -> int:
@@ -225,10 +253,10 @@ def unlocked_ability_ids(level: int) -> list:
 
 
 def compute_match_xp(placement: int, kills: int, won: bool, match_size: int) -> int:
-    xp = 30 + kills * 25
-    xp += max(0, (match_size - placement)) // 2
+    xp = 20 + kills * 18
+    xp += max(0, (match_size - placement)) // 3
     if won:
-        xp += 250
+        xp += 150
     return xp
 
 

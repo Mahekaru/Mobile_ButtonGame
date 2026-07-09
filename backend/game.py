@@ -65,6 +65,13 @@ class Player:
         # personal danger + patience reward
         self.last_press_at = now()        # personal timer (set at activation)
         self.hold_xp = 0                  # banked patience reward
+        # active-ability effect state
+        self.hidden_until = 0.0           # untargetable/press-safe until this ts
+        self.danger_bonus = 0.0           # overcharge: permanent +danger surcharge
+        self.xp_multiplier = 1.0          # overcharge: multiplies base match XP
+        self.hold_multiplier = 1.0        # adrenaline: multiplies banked patience XP
+        self.freeze_until = 0.0           # steady: danger frozen until this ts
+        self.frozen_danger = 0.0          # steady: value to hold while frozen
 
 
 class Match:
@@ -103,8 +110,11 @@ class Match:
         """Personal self-death chance %, based on time since THIS player's last press."""
         if self.phase != "active":
             return GAME_CONFIG["danger_base"]
+        if player.freeze_until and now() < player.freeze_until:
+            return max(GAME_CONFIG["danger_base"],
+                       min(GAME_CONFIG["danger_cap"], player.frozen_danger))
         elapsed = now() - player.last_press_at
-        val = GAME_CONFIG["danger_base"] + elapsed * self.eff_slope()
+        val = GAME_CONFIG["danger_base"] + elapsed * self.eff_slope() + player.danger_bonus
         return max(GAME_CONFIG["danger_base"], min(GAME_CONFIG["danger_cap"], val))
 
     def danger_pct(self) -> float:
@@ -158,7 +168,7 @@ class Match:
         # Reward patience: bank the wait since this player's last press (unless
         # they pressed their own doom). The longer they held out, the more XP.
         if not self_elim:
-            victim.hold_xp += int(min(HOLD_XP_CAP, (now() - victim.last_press_at) * HOLD_XP_PER_SEC))
+            victim.hold_xp += int(min(HOLD_XP_CAP, (now() - victim.last_press_at) * HOLD_XP_PER_SEC) * victim.hold_multiplier)
         self._push_feed({
             "type": "elim",
             "victim": victim.name,
@@ -178,7 +188,10 @@ class Match:
             pass
 
     def _pick_victim(self, exclude_pids: set) -> Optional[Player]:
-        pool = [p for p in self.players.values() if p.alive and p.pid not in exclude_pids]
+        t = now()
+        pool = [p for p in self.players.values()
+                if p.alive and p.pid not in exclude_pids
+                and not (p.hidden_until and t < p.hidden_until)]
         if not pool:
             return None
         weights = [max(0.02, 1.0 - protection_for(p.kills)) for p in pool]
@@ -207,6 +220,29 @@ class Match:
                 double_tap = True
                 presser.ability_used = True
                 ability_note = "double_tap"
+            elif presser.ability == "hide":
+                # Untargetable + press-safe for 5 seconds.
+                presser.hidden_until = now() + 5.0
+                self_chance = 0.0
+                presser.ability_used = True
+                ability_note = "hide"
+            elif presser.ability == "overcharge":
+                # Triple match XP at the cost of a permanent +15% danger surcharge.
+                presser.xp_multiplier = 3.0
+                presser.danger_bonus += 15.0
+                presser.ability_used = True
+                ability_note = "overcharge"
+            elif presser.ability == "adrenaline":
+                # Double all patience XP banked from here on.
+                presser.hold_multiplier = 2.0
+                presser.ability_used = True
+                ability_note = "adrenaline"
+            elif presser.ability == "steady":
+                # Freeze danger near the floor for 6 seconds after this press.
+                presser.frozen_danger = GAME_CONFIG["danger_base"]
+                presser.freeze_until = now() + 6.0
+                presser.ability_used = True
+                ability_note = "steady"
 
         outcome = {"presser": presser.name, "danger": round(danger, 1),
                    "self_death": False, "victims": [], "ability": ability_note,
@@ -223,7 +259,7 @@ class Match:
             outcome["victims"].append(presser.name)
         else:
             # Bank the patience reward — the longer the hold, the bigger the payout.
-            hold = int(min(HOLD_XP_CAP, wait_seconds * HOLD_XP_PER_SEC))
+            hold = int(min(HOLD_XP_CAP, wait_seconds * HOLD_XP_PER_SEC) * presser.hold_multiplier)
             presser.hold_xp += hold
             outcome["hold_bonus"] = hold
             n = GAME_CONFIG["double_tap_count"] if double_tap else 1
@@ -270,7 +306,7 @@ class Match:
             if alive:
                 winner = alive[0]
                 winner.placement = 1
-                winner.hold_xp += int(min(HOLD_XP_CAP, (now() - winner.last_press_at) * HOLD_XP_PER_SEC))
+                winner.hold_xp += int(min(HOLD_XP_CAP, (now() - winner.last_press_at) * HOLD_XP_PER_SEC) * winner.hold_multiplier)
                 self.winner_pid = winner.pid
                 self._push_feed({"type": "win", "victim": winner.name,
                                  "victim_icon": winner.icon, "killer": None, "self": False})
@@ -363,7 +399,7 @@ class Match:
     def _results_for(self, me: Player) -> dict:
         won = self.winner_pid == me.pid
         placement = me.placement or self.alive_count()
-        base_xp = compute_match_xp(placement, me.kills, won, len(self.players))
+        base_xp = int(compute_match_xp(placement, me.kills, won, len(self.players)) * me.xp_multiplier)
         return {
             "won": won,
             "placement": placement,
@@ -450,7 +486,7 @@ class MatchManager:
             return
         won = match.winner_pid == p.pid
         placement = p.placement or match.alive_count()
-        xp_gained = (compute_match_xp(placement, p.kills, won, len(match.players))
+        xp_gained = (int(compute_match_xp(placement, p.kills, won, len(match.players)) * p.xp_multiplier)
                      + p.bonus_xp + p.hold_xp)
 
         user = await self.db.users.find_one({"_id": p.user_id})

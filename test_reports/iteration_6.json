@@ -1,0 +1,43 @@
+{
+  "summary": "Iteration 6 verified end-to-end. BACKEND: 18/18 pytest cases in /app/backend/tests/test_iteration6.py pass. (a) AD MODEL: /ads/status now returns {mandatory_due, cooldown_remaining, reward, reward_available, can_watch, already_claimed}. Fresh guest -> mandatory_due=true, reward=0, reward_available=false, cooldown=0. After join+leave -> reward>0 AND reward_available=true AND mandatory_due=true (no ad yet). POST /ads/seen -> mandatory_due=false, cooldown_remaining in [170,180]; reward_available stays true (independent of cooldown). POST /ads/reward -> increments xp by exact `reward`, sets reward_available=false, already_claimed=true, ALSO resets cooldown (mandatory_due=false); second POST -> 400. (b) XP CURVE: xp_for_level(2)==200 and xp_for_level(5)==2000 verified via daily-claim (125 XP still L1 with xp_for_next=200) and direct Mongo bump (xp=1999 -> L4, xp=2000 -> L5). Single mid-match self-leave yields <200 XP -> no multi-level jump for a fresh guest. (c) ABILITIES: /abilities returns exactly 8 items including new active abilities hide(L4), overcharge(L6), adrenaline(L8), steady(L10), all type='active' and locked for fresh guest. (d) EQUIP + MATCH SAFETY: bumping xp in Mongo and POST /profile/ability succeeds for each new ability; joining a match, pressing with use_ability=true, and reading state returns 200 (never 5xx). hide branch confirms self_death=false on the activating press.\n\nFRONTEND E2E (mobile 390x844): SCENARIO A verified - fresh guest first match reaches results-screen with CONTINUE label 'CONTINUE' (return-lobby-btn) and double-xp-btn appeared (random draw was true this run); tapping CONTINUE opens a FULL-SCREEN ad-overlay with 'AD' badge, 'ADVERTISEMENT · SIMULATED' header, GALAXY CLASH banner, 5 gold stars, no ad-skip; countdown then ad-claim button labelled 'CONTINUE' -> tap -> returns to home tab. SCENARIO C (grace) verified - immediately playing a SECOND match within 3 min, results-screen CONTINUE still labelled 'CONTINUE'; tapping it goes STRAIGHT to home with NO ad-overlay rendered (confirmed via query_selector). COSMETICS CHIPS: on the Cosmetics tab, the top category chip row includes all six chips cat-button_skin, cat-button_fx, cat-icon, cat-title, cat-elim_effect, cat-victory_anim; the row is horizontally scrollable and cat-victory_anim can be scrolled into view (bounding_box x=289 within the 390px viewport) and tapped -> reveals Confetti/Fireworks/Gold Rain tiles. FULL-SCREEN AD verified visually - fills the whole screen including the tab bar.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "all (web preview only)", "issues": ["Custom IBMPlexSans TTF fonts still fail to decode via the Expo web preview proxy (OTS parsing error / invalid sfntVersion). Falls back to system font on web only. Long-standing issue - does not affect native builds or any tested functionality."]}
+    ],
+    "react_native_issues": [
+      {"component": "match/[id].tsx reveal Animated.View", "issue": "'props.pointerEvents is deprecated. Use style.pointerEvents' warning is still emitted on the reveal banner. Reference: /app/frontend/app/match/[id].tsx:306"}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration6.py",
+    "/app/test_reports/pytest/pytest_iter6.xml"
+  ],
+  "action_items": [
+    "(Optional) Silence the residual RN-Web 'props.pointerEvents is deprecated' warning on match/[id].tsx:306 (either remove the redundant style entry or the prop).",
+    "(Optional / informational) Scenario B (double-XP random button) is ~50% per match; observed on the very first fresh-guest match this run. If deterministic testing is required later, either add a debug flag / query-param that forces `offerDoubleXp=true` or expose the roll seed - not blocking today."
+  ],
+  "critical_code_review_comments": [
+    "server.py _ad_state: correctly gates reward_available on (last_match_id AND ad_claimed_for != last_match_id AND reward>0) - independent of cooldown, which matches the review request. mandatory_due is driven purely by the 180s window since last_ad_at.",
+    "server.py /ads/reward: sets last_ad_at=_now_ts() when claiming double-XP, so it correctly resets the mandatory cooldown too - test verifies mandatory_due=false after claim.",
+    "config.py: xp_for_level = 100*(n-1)*n gives 0/200/600/1200/2000/3000/... - matches request. compute_match_xp base of 20 + 18/kill + placement bonus + 150 win keeps mid-placement no-kill XP ~36, small enough that a fresh guest cannot multi-level from one match.",
+    "config.ABILITIES contains 4 new active entries with expected unlock_level and type='active'. DEFENSIVE_ABILITIES set derives only ids with type=='defensive', so hide/overcharge/adrenaline/steady are correctly treated as 'active' (armed via ability-button and consumed on next press).",
+    "game.resolve_press: hide zeroes self_chance and sets hidden_until=+5s; overcharge sets xp_multiplier=3 + permanent +15 danger_bonus; adrenaline sets hold_multiplier=2; steady sets frozen_danger=base for 6s. _pick_victim excludes hidden pids. _results_for and persist_player both apply xp_multiplier to compute_match_xp - single source of truth.",
+    "match/[id].tsx ResultsView: handleContinue branches on mandatory_due (skip if false), showRewardedInterstitial on native, or renders <AdOverlay mode='mandatory' /> on web. handleDoubleXp is separate, only reachable via double-xp-btn (offerDoubleXp is a 50/50 client roll). AdOverlay is styled as ...StyleSheet.absoluteFillObject with zIndex 50 - truly full-screen (verified in screenshot).",
+    "cosmetics.tsx: the chip row is a single ScrollView horizontal with contentContainerStyle.gap=space.sm and paddingHorizontal=space.xl; chips have flexShrink:0 so they never squish. Verified cat-victory_anim reachable via scroll_into_view.",
+    "abilities.tsx: renders backend-driven list from /api/abilities and the equip flow POSTs to /profile/ability - properly gated by ability.unlock_level on the server."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration6.py (new)",
+    "/app/test_reports/pytest/pytest_iter6.xml (new)",
+    "/app/test_reports/iteration_6.json (new)"
+  ],
+  "success_rate": {"backend": "100% (18/18 iter6 tests pass; ad-model + xp-curve + new abilities + match safety)", "frontend": "100% of iter6 flows verified (mandatory full-screen ad on first match, 3-min cooldown skip on match 2, cosmetics chip row scrollable to cat-victory_anim)"},
+  "seed_data_creation": "Ephemeral guest users only (I6_*, AdMand_*, CD_*, CD2_*); direct XP bumps in db.users for level-gated ability equip tests. No persistent seed data.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend base: https://danger-meter-3.preview.emergentagent.com/api. Key ad flow: results-screen has ONE always-visible CONTINUE button (testID return-lobby-btn) and MAYBE a WATCH AD DOUBLE XP button (testID double-xp-btn, appears at random ~50% when reward_available). Tapping return-lobby-btn opens the full-screen ad-overlay ONLY when mandatory_due=true (i.e. more than 3 min since last ad); otherwise goes straight to lobby. AdOverlay children testIDs: ad-overlay (root), ad-skip (double-XP only), ad-claim (after 5s countdown), ad-claimed (double-XP claimed banner). Cosmetics chips: cat-button_skin/button_fx/icon/title/elim_effect/victory_anim; the row is horizontally scrollable so use scroll_into_view_if_needed to reach cat-victory_anim. Known DOM caveat: [data-testid=\"find-match-btn\"] resolves to 2 nodes (Expo Router keeps hidden tab screens mounted) - iterate query_selector_all and pick bounding_box.width>100. New abilities (hide/overcharge/adrenaline/steady) are level-gated (L4/6/8/10). To equip in tests, directly bump db.users.xp to 1200/3000/5600/9000 then POST /profile/ability. Simulated web ad only - real AdMob is native-build only.",
+  "rca_of_issue": "N/A - all requested features work as designed."
+}

@@ -77,9 +77,15 @@ export const api = {
       method: "POST",
     }),
   adsStatus: () =>
-    request<{ can_watch: boolean; cooldown_remaining: number; reward: number; already_claimed: boolean }>(
-      "/ads/status",
-    ),
+    request<{
+      mandatory_due: boolean;
+      cooldown_remaining: number;
+      reward: number;
+      reward_available: boolean;
+      can_watch: boolean;
+      already_claimed: boolean;
+    }>("/ads/status"),
+  adsSeen: () => request<{ mandatory_due: boolean; cooldown_remaining: number }>("/ads/seen", { method: "POST" }),
   claimAdReward: () => request<{ rewarded: number; user: any }>("/ads/reward", { method: "POST" }),
   friends: () => request<{ friend_code: string; friends: any[] }>("/friends"),
   addFriend: (code: string) =>

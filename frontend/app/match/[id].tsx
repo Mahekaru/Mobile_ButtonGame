@@ -228,14 +228,14 @@ export default function MatchScreen() {
           testID="ability-button"
           disabled={me?.ability_used || !me?.alive || ability.type === "defensive"}
           onPress={() => {
-            if (ability.type === "offensive" && !me?.ability_used) {
+            if (ability.type !== "defensive" && !me?.ability_used) {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               setArmed((a) => !a);
             }
           }}
           style={[
             styles.abilityTop,
-            armed && ability.type === "offensive" && styles.abilityArmed,
+            armed && ability.type !== "defensive" && styles.abilityArmed,
             me?.ability_used && styles.abilityUsed,
           ]}
         >
@@ -403,16 +403,24 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
   const leveledUp = newLevel > oldLevel;
 
   const [showAd, setShowAd] = useState(false);
+  const [adMode, setAdMode] = useState<"mandatory" | "double">("mandatory");
   const [adReward, setAdReward] = useState(0);
-  const [adCanWatch, setAdCanWatch] = useState(false);
-  const [adCooldown, setAdCooldown] = useState(0);
-  const [returning, setReturning] = useState(false);
+  const [mandatoryDue, setMandatoryDue] = useState(false);
+  const [offerDoubleXp, setOfferDoubleXp] = useState(false);
+  const [busy, setBusy] = useState(false);
   const { user } = useAuth();
 
   const claimAd = async () => {
     try {
       await api.claimAdReward();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      /* ignore */
+    }
+  };
+  const markAdSeen = async () => {
+    try {
+      await api.adsSeen();
     } catch {
       /* ignore */
     }
@@ -424,12 +432,10 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
       .adsStatus()
       .then((s) => {
         if (!active) return;
-        if (s.can_watch) {
-          setAdReward(s.reward);
-          setAdCanWatch(true);
-        } else if (s.cooldown_remaining > 0) {
-          setAdCooldown(s.cooldown_remaining);
-        }
+        setAdReward(s.reward);
+        setMandatoryDue(s.mandatory_due);
+        // The DOUBLE-XP offer appears at RANDOM when a reward is available.
+        setOfferDoubleXp(s.reward_available && Math.random() < 0.5);
       })
       .catch(() => {});
     return () => {
@@ -437,22 +443,36 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
     };
   }, []);
 
-  // Interstitial shown BETWEEN results and lobby. Watch = double XP, skip = none.
-  const handleReturn = async () => {
-    if (returning) return;
-    if (!adCanWatch) {
+  // CONTINUE (always available): shows a mandatory ad if 3 min have passed
+  // since the last ad, otherwise goes straight to the lobby.
+  const handleContinue = async () => {
+    if (busy) return;
+    if (!mandatoryDue) {
       onExit();
       return;
     }
     if (adsSupported) {
-      // Native build: real AdMob rewarded interstitial.
-      setReturning(true);
+      setBusy(true);
+      await showRewardedInterstitial(user?.id || "guest"); // mandatory: no reward
+      await markAdSeen();
+      onExit();
+      return;
+    }
+    setAdMode("mandatory");
+    setShowAd(true);
+  };
+
+  // DOUBLE XP (offered at random): opt-in ad. Watch = double XP, skip = nothing.
+  const handleDoubleXp = async () => {
+    if (busy) return;
+    if (adsSupported) {
+      setBusy(true);
       const outcome = await showRewardedInterstitial(user?.id || "guest");
       if (outcome === "earned") await claimAd();
       onExit();
       return;
     }
-    // Web / Expo Go: simulated interstitial overlay drives navigation.
+    setAdMode("double");
     setShowAd(true);
   };
 
@@ -553,33 +573,36 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
           <MaterialCommunityIcons name="share-variant" size={20} color="#fff" />
           <Text style={styles.shareText}>{sharing ? "SHARING…" : "SHARE RECAP"}</Text>
         </Pressable>
-
-        {adCanWatch ? (
-          <Text style={styles.adNote} testID="ad-avail-note">
-            🎬 Watch a quick ad on exit for DOUBLE XP (+{adReward})
-          </Text>
-        ) : adCooldown > 0 ? (
-          <Text style={styles.adNote}>Next bonus ad in {Math.ceil(adCooldown / 60)} min</Text>
-        ) : null}
       </ScrollView>
 
-      <View style={{ padding: space.xl, paddingBottom: insets.bottom + space.lg }}>
+      <View style={[styles.resultFooter, { paddingBottom: insets.bottom + space.lg }]}>
+        {offerDoubleXp && (
+          <Pressable
+            testID="double-xp-btn"
+            disabled={busy}
+            onPress={handleDoubleXp}
+            style={styles.doubleXpBtn}
+          >
+            <MaterialCommunityIcons name="star-four-points" size={20} color={colors.surface} />
+            <Text style={styles.doubleXpText}>WATCH AD · DOUBLE XP (+{adReward})</Text>
+          </Pressable>
+        )}
         <Pressable
           testID="return-lobby-btn"
-          disabled={returning}
-          onPress={handleReturn}
+          disabled={busy}
+          onPress={handleContinue}
           style={styles.returnBtn}
         >
-          <Text style={styles.returnText}>
-            {returning ? "LOADING AD…" : adCanWatch ? "CLAIM DOUBLE XP & CONTINUE" : "RETURN TO LOBBY"}
-          </Text>
+          <Text style={styles.returnText}>{busy ? "LOADING AD…" : "CONTINUE"}</Text>
         </Pressable>
       </View>
 
       {showAd && (
         <AdOverlay
+          mode={adMode}
           reward={adReward}
-          onClaim={claimAd}
+          onSkip={onExit}
+          onClaim={adMode === "double" ? claimAd : markAdSeen}
           onProceed={onExit}
         />
       )}
@@ -587,7 +610,8 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
   );
 }
 
-function AdOverlay({ reward, onClaim, onProceed }: any) {
+function AdOverlay({ mode, reward, onSkip, onClaim, onProceed }: any) {
+  const mandatory = mode === "mandatory";
   const [left, setLeft] = useState(5);
   const [claimed, setClaimed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -596,12 +620,16 @@ function AdOverlay({ reward, onClaim, onProceed }: any) {
     return () => clearInterval(iv);
   }, []);
   const done = left <= 0;
-  const claim = async () => {
+  const act = async () => {
     if (busy) return;
     setBusy(true);
     await onClaim();
-    setClaimed(true);
-    setTimeout(onProceed, 1300);
+    if (mandatory) {
+      onProceed();
+    } else {
+      setClaimed(true);
+      setTimeout(onProceed, 1300);
+    }
   };
   return (
     <Animated.View entering={FadeIn.duration(200)} style={styles.adWrap} testID="ad-overlay">
@@ -611,22 +639,28 @@ function AdOverlay({ reward, onClaim, onProceed }: any) {
             <Text style={styles.adBadgeText}>AD</Text>
           </View>
           <Text style={styles.adHeaderText}>ADVERTISEMENT · SIMULATED</Text>
-          {/* Skip = no reward, proceed straight to lobby */}
-          <Pressable testID="ad-skip" onPress={onProceed} style={styles.adSkip} hitSlop={10}>
-            <MaterialCommunityIcons name="close" size={18} color={colors.muted} />
-          </Pressable>
+          {/* Skip (no reward) only for the optional double-XP ad. */}
+          {!mandatory ? (
+            <Pressable testID="ad-skip" onPress={onSkip} style={styles.adSkip} hitSlop={10}>
+              <MaterialCommunityIcons name="close" size={18} color={colors.muted} />
+            </Pressable>
+          ) : (
+            <View style={styles.adSkip} />
+          )}
         </View>
         <LinearGradient colors={["#0A3D62", "#0C2461"]} style={styles.adBanner}>
-          <MaterialCommunityIcons name="sword-cross" size={40} color="#FFD700" />
+          <MaterialCommunityIcons name="sword-cross" size={56} color="#FFD700" />
           <Text style={styles.adBannerTitle}>GALAXY CLASH</Text>
           <Text style={styles.adBannerSub}>Build your empire · Install free</Text>
           <View style={styles.adStars}>
             {[0, 1, 2, 3, 4].map((i) => (
-              <MaterialCommunityIcons key={i} name="star" size={14} color="#FFD700" />
+              <MaterialCommunityIcons key={i} name="star" size={16} color="#FFD700" />
             ))}
           </View>
         </LinearGradient>
-        {claimed ? (
+        {mandatory ? (
+          <Text style={styles.adRewardLine}>Sponsored break — thanks for playing Panic Button!</Text>
+        ) : claimed ? (
           <Text style={[styles.adRewardLine, { color: colors.success }]} testID="ad-claimed">
             DOUBLE XP! +{reward} bonus applied 🎉
           </Text>
@@ -634,13 +668,17 @@ function AdOverlay({ reward, onClaim, onProceed }: any) {
           <Text style={styles.adRewardLine}>Watch fully to earn +{reward} bonus XP (DOUBLE your match XP). Skip = no bonus.</Text>
         )}
         {claimed ? null : done ? (
-          <Pressable testID="ad-claim" disabled={busy} onPress={claim} style={styles.adClaimBtn}>
-            <MaterialCommunityIcons name="gift" size={20} color={colors.surface} />
-            <Text style={styles.adClaimText}>{busy ? "…" : `CLAIM +${reward} XP`}</Text>
+          <Pressable testID="ad-claim" disabled={busy} onPress={act} style={styles.adClaimBtn}>
+            <MaterialCommunityIcons name={mandatory ? "play" : "gift"} size={20} color={colors.surface} />
+            <Text style={styles.adClaimText}>
+              {busy ? "…" : mandatory ? "CONTINUE" : `CLAIM +${reward} XP`}
+            </Text>
           </Pressable>
         ) : (
           <View style={styles.adCountdown}>
-            <Text style={styles.adCountdownText}>Reward unlocks in {left}s…</Text>
+            <Text style={styles.adCountdownText}>
+              {mandatory ? `Continue in ${left}s…` : `Reward unlocks in ${left}s…`}
+            </Text>
           </View>
         )}
       </View>
@@ -874,4 +912,71 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   returnText: { fontFamily: font.displayBold, fontSize: type.xl, color: "#fff", letterSpacing: 1 },
+  resultFooter: { paddingHorizontal: space.xl, paddingTop: space.md, gap: space.md },
+  doubleXpBtn: {
+    height: 56,
+    borderRadius: radius.md,
+    backgroundColor: colors.amber,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: space.sm,
+  },
+  doubleXpText: { fontFamily: font.displayBold, fontSize: type.lg, color: colors.surface, letterSpacing: 0.5 },
+  // Full-screen simulated ad
+  adWrap: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "#05070D",
+    zIndex: 50,
+  },
+  adCard: {
+    flex: 1,
+    paddingHorizontal: space.xl,
+    paddingTop: 60,
+    paddingBottom: 48,
+    justifyContent: "space-between",
+  },
+  adHeader: { flexDirection: "row", alignItems: "center", gap: space.sm },
+  adBadge: { backgroundColor: colors.amber, borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 2 },
+  adBadgeText: { fontFamily: font.bold, fontSize: 10, color: colors.surface, letterSpacing: 0.5 },
+  adHeaderText: { flex: 1, fontFamily: font.medium, fontSize: type.sm, color: colors.muted, letterSpacing: 1 },
+  adSkip: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+  adBanner: {
+    flex: 1,
+    borderRadius: radius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    marginVertical: space.xl,
+    gap: space.sm,
+  },
+  adBannerTitle: { fontFamily: font.displayBold, fontSize: type["4xl"], color: "#fff", letterSpacing: 2 },
+  adBannerSub: { fontFamily: font.regular, fontSize: type.base, color: "rgba(255,255,255,0.85)" },
+  adStars: { flexDirection: "row", gap: 2, marginTop: space.sm },
+  adRewardLine: {
+    fontFamily: font.semi,
+    fontSize: type.base,
+    color: colors.onSurface2,
+    textAlign: "center",
+    marginBottom: space.lg,
+  },
+  adClaimBtn: {
+    height: 56,
+    borderRadius: radius.md,
+    backgroundColor: colors.amber,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: space.sm,
+  },
+  adClaimText: { fontFamily: font.displayBold, fontSize: type.xl, color: colors.surface, letterSpacing: 1 },
+  adCountdown: {
+    height: 56,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface2,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  adCountdownText: { fontFamily: font.semi, fontSize: type.base, color: colors.muted },
 });

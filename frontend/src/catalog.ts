@@ -1,5 +1,5 @@
 // Client-side ability metadata (mirrors backend catalog for HUD rendering).
-export type AbilityType = "offensive" | "defensive";
+export type AbilityType = "offensive" | "defensive" | "active";
 
 export const ABILITY_META: Record<
   string,
@@ -28,5 +28,29 @@ export const ABILITY_META: Record<
     icon: "gesture-double-tap",
     type: "offensive",
     short: "Eliminate two",
+  },
+  hide: {
+    name: "Vanish",
+    icon: "ghost",
+    type: "active",
+    short: "5s untargetable",
+  },
+  overcharge: {
+    name: "Overcharge",
+    icon: "lightning-bolt",
+    type: "active",
+    short: "3x XP · +15% danger",
+  },
+  adrenaline: {
+    name: "Adrenaline",
+    icon: "run-fast",
+    type: "active",
+    short: "2x patience XP",
+  },
+  steady: {
+    name: "Steady Hand",
+    icon: "timer-sand",
+    type: "active",
+    short: "Freeze danger 6s",
   },
 };

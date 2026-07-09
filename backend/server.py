@@ -225,7 +225,11 @@ async def me(user: dict = Depends(get_current_user)):
 
 
 # ---------------------------------------------------------------------------
-# Rewarded ads (double-XP after a match, 3-min cooldown)
+# Ads — after each match:
+#   • MANDATORY interstitial on "Continue" once 3 min have passed since the
+#     last ad (mandatory_due). Watching it just resets the cooldown.
+#   • Optional DOUBLE-XP ad, offered at random by the client (reward_available):
+#     watching grants double the match XP; skipping grants nothing.
 # ---------------------------------------------------------------------------
 def _now_ts() -> float:
     return datetime.now(timezone.utc).timestamp()
@@ -233,15 +237,22 @@ def _now_ts() -> float:
 
 def _ad_state(user: dict) -> dict:
     last_ad = user.get("last_ad_at")
-    remaining = 0.0
-    if last_ad:
-        remaining = max(0.0, C.AD_COOLDOWN_SEC - (_now_ts() - last_ad))
+    since = (_now_ts() - last_ad) if last_ad else None
+    mandatory_due = since is None or since >= C.AD_COOLDOWN_SEC
+    cooldown_remaining = 0 if mandatory_due else round(C.AD_COOLDOWN_SEC - since)
     reward = user.get("last_match_xp", 0)
     already = (user.get("last_match_id") is not None
                and user.get("ad_claimed_for") == user.get("last_match_id"))
-    can_watch = remaining <= 0 and reward > 0 and not already
-    return {"can_watch": can_watch, "cooldown_remaining": round(remaining),
-            "reward": reward, "already_claimed": already}
+    reward_available = reward > 0 and not already
+    return {
+        "mandatory_due": mandatory_due,
+        "cooldown_remaining": cooldown_remaining,
+        "reward": reward,
+        "reward_available": reward_available,
+        # kept for backward-compat with older clients
+        "can_watch": reward_available,
+        "already_claimed": already,
+    }
 
 
 @api_router.get("/ads/status")
@@ -249,12 +260,18 @@ async def ads_status(user: dict = Depends(get_current_user)):
     return _ad_state(user)
 
 
+@api_router.post("/ads/seen")
+async def ads_seen(user: dict = Depends(get_current_user)):
+    """Record that a (mandatory) ad was shown — resets the 3-minute cooldown."""
+    await db.users.update_one({"_id": user["_id"]}, {"$set": {"last_ad_at": _now_ts()}})
+    updated = await db.users.find_one({"_id": user["_id"]})
+    return _ad_state(updated)
+
+
 @api_router.post("/ads/reward")
 async def ads_reward(user: dict = Depends(get_current_user)):
     state = _ad_state(user)
-    if state["cooldown_remaining"] > 0:
-        raise HTTPException(status_code=400, detail="Ad on cooldown")
-    if state["reward"] <= 0 or state["already_claimed"]:
+    if not state["reward_available"]:
         raise HTTPException(status_code=400, detail="No reward available")
     reward = state["reward"]
     new_xp = user.get("xp", 0) + reward

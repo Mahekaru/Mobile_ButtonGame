@@ -135,7 +135,7 @@ export default function AbilitiesScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.sheetName}>{selected.name}</Text>
                   <Text style={styles.sheetType}>
-                    {selected.type === "defensive" ? "DEFENSIVE · auto-triggers" : "OFFENSIVE · arm before press"}
+                    {selected.type === "defensive" ? "DEFENSIVE · auto-triggers" : "ACTIVE · arm before press"}
                   </Text>
                 </View>
               </View>
