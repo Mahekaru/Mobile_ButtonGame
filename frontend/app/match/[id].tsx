@@ -24,6 +24,7 @@ import { VictoryFX } from "@/src/fx";
 import { levelForXp, rankName } from "@/src/progression";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/auth";
+import { adsSupported, showRewardedAd } from "@/src/ads";
 import { GlassCard, SkinSurface } from "@/src/ui";
 
 export default function MatchScreen() {
@@ -401,24 +402,7 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
   const [adReward, setAdReward] = useState(0);
   const [adClaimed, setAdClaimed] = useState(0);
   const [adCooldown, setAdCooldown] = useState(0);
-  useEffect(() => {
-    let active = true;
-    api
-      .adsStatus()
-      .then((s) => {
-        if (!active) return;
-        if (s.can_watch) {
-          setAdReward(s.reward);
-          setShowAd(true);
-        } else if (s.cooldown_remaining > 0) {
-          setAdCooldown(s.cooldown_remaining);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, []);
+  const { user } = useAuth();
   const claimAd = async () => {
     try {
       const r = await api.claimAdReward();
@@ -430,6 +414,36 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
       setShowAd(false);
     }
   };
+
+  useEffect(() => {
+    let active = true;
+    api
+      .adsStatus()
+      .then(async (s) => {
+        if (!active) return;
+        if (s.can_watch) {
+          setAdReward(s.reward);
+          // On a native build, try a REAL AdMob rewarded ad first.
+          if (adsSupported) {
+            const outcome = await showRewardedAd(user?.id || "guest");
+            if (!active) return;
+            if (outcome === "earned") {
+              await claimAd();
+              return;
+            }
+            // Not earned / unsupported / error → simulated fallback overlay.
+          }
+          setShowAd(true);
+        } else if (s.cooldown_remaining > 0) {
+          setAdCooldown(s.cooldown_remaining);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const share = async () => {
     if (sharing) return;
