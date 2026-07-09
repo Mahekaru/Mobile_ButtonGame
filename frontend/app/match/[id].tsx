@@ -279,8 +279,7 @@ export default function MatchScreen() {
       {reveal && (
         <Animated.View
           entering={FadeInDown.springify().damping(14)}
-          style={styles.revealWrap}
-          pointerEvents="none"
+          style={[styles.revealWrap, { pointerEvents: "none" }]}
         >
           <View style={[styles.revealBanner, { borderColor: reveal.tone }]}>
             <Text style={[styles.revealText, { color: reveal.tone }]}>{reveal.text}</Text>
