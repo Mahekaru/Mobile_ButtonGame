@@ -22,6 +22,17 @@ Multiplayer battle-royale game around a single shared button. 100 players; any l
 ## Core Requirements (static)
 - 100-player matches, bot backfill, shared button, danger meter, presser-vs-random elimination, kill protection, persistent progression, rank-gated abilities (equip one), cosmetics, stats.
 
+## Implemented (2026-06 / build 3 — personal danger + retention)
+- **Personal danger meter**: danger is now per-player and only resets when THAT player presses (no longer global). Self-death chance on a press uses the presser's personal danger. Bots press on their own personal danger vs. personality threshold.
+- **Patience reward**: the longer you hold before pressing (or until eliminated), the more bonus XP you bank (capped at 140; forfeited only if you self-destruct on a press). Shown live on the HUD and on the recap.
+- **No bot mentions** anywhere in the lobby ("Preparing the arena…").
+- **Device-bound identity**: removed logout; token persists. Players can rename via `POST /api/profile/name` (menu pencil → bottom sheet).
+- **Gameplay tuning**: slower bot cadence (tick 0.8s) and danger slope scales up as the field shrinks (LATE_TENSION) → pronounced late-game tension.
+- **Level-up celebration** on the Results screen (client mirrors backend XP curve).
+- **Party lobby**: `POST /api/match/party/create` → shareable 5-char code (25s countdown); `POST /api/match/party/join` → invited friends land in the SAME match, guaranteeing friend-KO bonuses fire.
+- **Daily/weekly login bonus**: `GET /api/rewards/status`, `POST /api/rewards/claim` (streak + weekly boost); claimable card on the menu.
+- Verified: 10/10 new backend tests + frontend smoke pass; prior 20/20 core + 11/11 social still green.
+
 ## Implemented (2026-06 / build 2 — social loop)
 - **Name-only onboarding**: removed email/password; `POST /api/auth/guest {username}` creates a device-bound account with a unique 6-char friend code (JWT token persisted in secure storage). Old email/password endpoints retained but unused.
 - **Friends**: friend codes, mutual add-by-code (`/api/friends`, `/api/friends/add`), Friends screen with share-invite (native share sheet) + squad list.
