@@ -1,0 +1,192 @@
+{
+  "app_name": "Panic Button",
+  "personality": "7 Dark-First Utility DARK",
+  "personality_one_liner": "A high-tension, arcade-thriller interface built for fast scanning, psychological pressure, and tactical utility.",
+  "color": {
+    "surface": "#0F0F13",
+    "onSurface": "#FFFFFF",
+    "surfaceSecondary": "#1C1C22",
+    "onSurfaceSecondary": "#EBEBEF",
+    "surfaceTertiary": "#292932",
+    "onSurfaceTertiary": "#D1D1D6",
+    "surfaceInverse": "#FFFFFF",
+    "onSurfaceInverse": "#0F0F13",
+    "brand": "#E53935",
+    "brandPrimary": "#FF3B30",
+    "onBrandPrimary": "#FFFFFF",
+    "brandSecondary": "#FF9500",
+    "onBrandSecondary": "#0F0F13",
+    "brandTertiary": "#320A08",
+    "onBrandTertiary": "#FF453A",
+    "success": "#34C759",
+    "onSuccess": "#FFFFFF",
+    "warning": "#FFCC00",
+    "onWarning": "#0F0F13",
+    "error": "#FF3B30",
+    "onError": "#FFFFFF",
+    "info": "#0A84FF",
+    "onInfo": "#FFFFFF",
+    "border": "#292932",
+    "borderStrong": "#3A3A44",
+    "divider": "#292932"
+  },
+  "typography": {
+    "displayFontFamily": "Barlow Condensed",
+    "textFontFamily": "IBM Plex Sans",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24,
+      "3xl": 32,
+      "4xl": 48
+    }
+  },
+  "spacing": {
+    "rule": "Use tight, technical spacing for HUD elements and generous spacing around the main button to isolate it.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 4,
+    "md": 8,
+    "lg": 16,
+    "pill": 999
+  },
+  "shadow_tier": "0",
+  "navigation": "bottom_tabs",
+  "icon_set": "MaterialCommunityIcons",
+  "glassmorphism": {
+    "enabled": "true",
+    "do's": [
+      "Use blur behind HUD elements (elimination feed, ability indicators) to maintain background visibility.",
+      "Use glass for the bottom tab bar over the main menu backdrop."
+    ],
+    "dont's": [
+      "Never blur the central Panic Button itself; it must remain sharp and highly visible.",
+      "Avoid glass on dense statistics cards."
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Auth",
+      "purpose": "Player login/registration with a moody, high-stakes introduction.",
+      "states": {
+        "loading": "Pulsing danger meter spinner.",
+        "empty": "N/A",
+        "error": "Red banner with error message."
+      },
+      "layout": "Full-bleed abstract red tension background. Centered login form in a surfaceSecondary card. Large, highly visible 'Enter Arena' button."
+    },
+    {
+      "name": "Main Menu (Play)",
+      "purpose": "Lobby hub showing current rank, equipped ability, and the primary 'Find Match' action.",
+      "states": {
+        "loading": "Matchmaking state: 'Searching for targets...'",
+        "empty": "N/A",
+        "error": "Connection error state."
+      },
+      "layout": "Background: Dark red abstract texture. Top: Player Profile & Rank tier. Center: Character/Avatar outline or large tension graphic. Bottom: Massive sticky 'Find Match' button floating above the tab bar."
+    },
+    {
+      "name": "Match Screen",
+      "purpose": "The live battlefield HUD focusing absolute attention on the central button and the rising tension.",
+      "states": {
+        "loading": "Lobby fill screen with remaining player count.",
+        "empty": "N/A",
+        "error": "Disconnect overlay."
+      },
+      "layout": "Corner-anchored HUD. Top-left: Live Elimination Feed (small, glass background). Top-right: Remaining Players & Kill Count. Top-center: Huge 'Danger Meter' percentage (scaling in size/color as it rises). Center: The massive PANIC BUTTON. Bottom-center: Equipped Ability button (circular, distinct from main button)."
+    },
+    {
+      "name": "Abilities",
+      "purpose": "Browse, unlock, and equip single-use match abilities.",
+      "states": {
+        "loading": "Skeleton grid of ability icons.",
+        "empty": "No abilities unlocked message.",
+        "error": "Failed to load abilities."
+      },
+      "layout": "2-column grid of ability cards. Each card shows an icon, title, and lock/equip status. Selected ability opens a bottom sheet with detailed stats (Second Chance, Deflect, etc.) and an 'Equip' CTA."
+    },
+    {
+      "name": "Cosmetics",
+      "purpose": "Customize button skins, titles, profile icons, and effects.",
+      "states": {
+        "loading": "Skeleton grid.",
+        "empty": "No items in category.",
+        "error": "Failed to load items."
+      },
+      "layout": "Horizontal segmented control (Skins, Titles, Icons, Effects). 3-column grid of visual items. Selecting an item previews it on a mock central button. Sticky 'Equip' button at bottom."
+    },
+    {
+      "name": "Statistics",
+      "purpose": "Display lifetime player performance and ranks.",
+      "states": {
+        "loading": "Skeleton stats blocks.",
+        "empty": "Play a match to reveal stats.",
+        "error": "Failed to fetch stats."
+      },
+      "layout": "Dashboard layout. Top: Large Rank Tier card with XP progress bar. Below: 2-column grid of metric cards (Wins, Win Rate, Eliminations, Self-Eliminations) using condensed, large display fonts for numbers."
+    },
+    {
+      "name": "Results",
+      "purpose": "Victory or elimination summary with suspenseful reveal.",
+      "states": {
+        "loading": "Calculating placement...",
+        "empty": "N/A",
+        "error": "N/A"
+      },
+      "layout": "Full-bleed screen. If eliminated: Red tint, 'ELIMINATED BY [PLAYER]' in huge text. If victory: Golden/Amber tint, 'LAST ALIVE'. Followed by XP gain breakdown and 'Return to Lobby' CTA."
+    }
+  ],
+  "images": {
+    "auth_bg": {
+      "url": "https://images.unsplash.com/photo-1642369717514-f73f300e7d32?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDZ8MHwxfHNlYXJjaHwyfHxkYXJrJTIwcmVkJTIwYWJzdHJhY3QlMjB0ZW5zaW9uJTIwdGV4dHVyZSUyMGJhY2tncm91bmR8ZW58MHx8fHwxNzgzNTY1OTQyfDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Dark red abstract tension texture"
+    },
+    "main_menu_bg": {
+      "url": "https://images.unsplash.com/photo-1642369717514-f73f300e7d32?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDZ8MHwxfHNlYXJjaHwyfHxkYXJrJTIwcmVkJTIwYWJzdHJhY3QlMjB0ZW5zaW9uJTIwdGV4dHVyZSUyMGJhY2tncm91bmR8ZW58MHx8fHwxNzgzNTY1OTQyfDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Dark red abstract tension texture"
+    },
+    "button_texture_default": {
+      "url": "https://images.unsplash.com/photo-1775835072665-faea8492b8c9?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzOTB8MHwxfHNlYXJjaHwzfHxyZWQlMjBhcmNhZGUlMjBwYW5pYyUyMGJ1dHRvbiUyMDNkJTIwaXNvbGF0ZWR8ZW58MHx8fHwxNzgzNTY1OTMyfDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Large red arcade button being pressed"
+    }
+  },
+  "haptics": {
+    "main_button_press": "heavy",
+    "danger_meter_tick": "light",
+    "ability_activate": "medium",
+    "elimination_feed_update": "light",
+    "tab_switch": "selection",
+    "match_found": "success",
+    "eliminated": "error"
+  },
+  "instructions_to_main_agent": [
+    "Implement the '7 Dark-First Utility DARK' personality. Use sharp corners (radius sm/md), dark tonal surfaces, and zero drop shadows. Elevation is handled via surface lightness and dividers.",
+    "The Danger Meter on the Match Screen must be the second most prominent element after the button. Use the 'Barlow Condensed' font. As the percentage increases, interpolate the color from white to brandSecondary (Amber) to brandPrimary (Red).",
+    "The central Panic Button should be a massive Pressable component. Use reanimated to give it a satisfying, deep 'squish' scale animation on press. Integrate 'heavy' haptics on every press.",
+    "For the Match Screen HUD, strictly anchor elements to the corners (Top Left, Top Right, Bottom Center) to leave the center completely clear for the Danger Meter and the Panic Button. Use glass overlays (`surfaceSecondary` with blur) for HUD backgrounds to preserve context.",
+    "Implement the Gradient Scrim pattern behind any text placed over the `auth_bg` or `main_menu_bg` images to ensure perfect readability.",
+    "Do NOT use any blues, indigos, or purples anywhere in the app. Stick strictly to the obsidian/graphite base with signal red and amber accents.",
+    "All numbers (XP, Danger %, Remaining Players, Stats) must use 'Barlow Condensed'. All readable UI text (labels, buttons, descriptions) must use 'IBM Plex Sans'."
+  ]
+}
