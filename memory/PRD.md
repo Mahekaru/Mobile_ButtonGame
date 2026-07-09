@@ -22,6 +22,13 @@ Multiplayer battle-royale game around a single shared button. 100 players; any l
 ## Core Requirements (static)
 - 100-player matches, bot backfill, shared button, danger meter, presser-vs-random elimination, kill protection, persistent progression, rank-gated abilities (equip one), cosmetics, stats.
 
+## Implemented (2026-06 / build 5 — cosmetics come alive)
+- Equipped ability indicator moved to the TOP HUD (under the feed/stats row) so it never overlaps the button/hint/patience text.
+- Equipped elimination effect drives the in-match reveal animation (fade / shatter-zoom / burn / vaporize-slide).
+- Equipped victory animation plays on the Results screen when you win (confetti / fireworks / gold rain) via a lightweight `VictoryFX` particle module.
+- Party ready-up: `POST /api/match/{id}/start` + a START NOW button in the party lobby launches the match immediately (verified: 25s countdown → active + bot backfill).
+- Live equipped-skin preview on the main menu ("YOUR BUTTON") using `SkinSurface` so players see their skin/pattern before a match.
+
 ## Implemented (2026-06 / build 4 — UI polish)
 - Match HUD ability bar made compact + panic button/danger resized so it no longer overlaps the hint/patience text.
 - "Play with Friends" (party) moved to the top header next to the Friends button.

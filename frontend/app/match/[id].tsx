@@ -14,10 +14,13 @@ import Animated, {
   withSpring,
   FadeInDown,
   FadeIn,
+  ZoomIn,
+  SlideInUp,
 } from "react-native-reanimated";
 
 import { colors, font, radius, space, type, dangerColor, SKIN_COLORS } from "@/src/theme";
 import { ABILITY_META } from "@/src/catalog";
+import { VictoryFX } from "@/src/fx";
 import { levelForXp, rankName } from "@/src/progression";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/auth";
@@ -139,11 +142,16 @@ export default function MatchScreen() {
     router.replace("/(tabs)");
   };
 
+  const startNow = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    api.startMatch(id).catch(() => {});
+  };
+
   const dColor = dangerColor(localDanger);
 
   // ---- Results overlay ----
   if (state?.results) {
-    return <ResultsView results={state.results} skinColor={skinColor} username={user?.username} oldXp={user?.progression?.xp ?? 0} onExit={leave} />;
+    return <ResultsView results={state.results} skinColor={skinColor} username={user?.username} oldXp={user?.progression?.xp ?? 0} victoryAnim={user?.equipped_cosmetics?.victory_anim} onExit={leave} />;
   }
 
   // ---- Lobby ----
@@ -154,6 +162,15 @@ export default function MatchScreen() {
   }
 
   const ability = me?.ability ? ABILITY_META[me.ability] : null;
+  const elimEffect = user?.equipped_cosmetics?.elim_effect || "fade";
+  const revealEntering = (
+    {
+      fade: FadeIn.duration(250),
+      shatter: ZoomIn.springify().damping(6),
+      burn: FadeInDown.springify().damping(14),
+      vaporize: SlideInUp.springify().damping(15),
+    } as any
+  )[elimEffect] || FadeIn.duration(250);
 
   return (
     <View style={styles.root} testID="match-screen">
@@ -203,6 +220,48 @@ export default function MatchScreen() {
         </View>
       </View>
 
+      {/* Equipped ability (top HUD — kept away from the button/hint text) */}
+      {ability ? (
+        <Pressable
+          testID="ability-button"
+          disabled={me?.ability_used || !me?.alive || ability.type === "defensive"}
+          onPress={() => {
+            if (ability.type === "offensive" && !me?.ability_used) {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setArmed((a) => !a);
+            }
+          }}
+          style={[
+            styles.abilityTop,
+            armed && ability.type === "offensive" && styles.abilityArmed,
+            me?.ability_used && styles.abilityUsed,
+          ]}
+        >
+          <MaterialCommunityIcons
+            name={ability.icon as any}
+            size={20}
+            color={me?.ability_used ? colors.muted : armed ? "#fff" : colors.amber}
+          />
+          <Text style={[styles.abilityName, { flex: 1 }, me?.ability_used && { color: colors.muted }]} numberOfLines={1}>
+            {ability.name}
+          </Text>
+          <Text style={styles.abilityTopHint} numberOfLines={1}>
+            {me?.ability_used
+              ? "USED"
+              : ability.type === "defensive"
+                ? "AUTO"
+                : armed
+                  ? "ARMED"
+                  : "TAP TO ARM"}
+          </Text>
+        </Pressable>
+      ) : (
+        <View style={[styles.abilityTop, { opacity: 0.6 }]}>
+          <MaterialCommunityIcons name="flash-off" size={20} color={colors.muted} />
+          <Text style={styles.abilityTopHint}>No ability equipped</Text>
+        </View>
+      )}
+
       {/* Center: danger + button */}
       <View style={styles.center}>
         <Text style={styles.dangerLabel}>DANGER</Text>
@@ -235,56 +294,10 @@ export default function MatchScreen() {
         )}
       </View>
 
-      {/* Bottom: ability */}
-      <View style={[styles.bottom, { paddingBottom: insets.bottom + space.lg }]}>
-        {ability ? (
-          <Pressable
-            testID="ability-button"
-            disabled={me?.ability_used || !me?.alive || ability.type === "defensive"}
-            onPress={() => {
-              if (ability.type === "offensive" && !me?.ability_used) {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                setArmed((a) => !a);
-              }
-            }}
-            style={[
-              styles.abilityBtn,
-              armed && ability.type === "offensive" && styles.abilityArmed,
-              me?.ability_used && styles.abilityUsed,
-            ]}
-          >
-            <MaterialCommunityIcons
-              name={ability.icon as any}
-              size={22}
-              color={me?.ability_used ? colors.muted : armed ? "#fff" : colors.amber}
-            />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.abilityName, me?.ability_used && { color: colors.muted }]}>
-                {ability.name}
-              </Text>
-              <Text style={styles.abilityHint}>
-                {me?.ability_used
-                  ? "USED"
-                  : ability.type === "defensive"
-                    ? "AUTO · triggers if selected"
-                    : armed
-                      ? "ARMED · your next press"
-                      : `TAP TO ARM · ${ability.short}`}
-              </Text>
-            </View>
-          </Pressable>
-        ) : (
-          <View style={[styles.abilityBtn, { opacity: 0.6 }]}>
-            <MaterialCommunityIcons name="flash-off" size={22} color={colors.muted} />
-            <Text style={styles.abilityHint}>No ability equipped</Text>
-          </View>
-        )}
-      </View>
-
       {/* Reveal banner */}
       {reveal && (
         <Animated.View
-          entering={FadeInDown.springify().damping(14)}
+          entering={revealEntering}
           style={[styles.revealWrap, { pointerEvents: "none" }]}
         >
           <View style={[styles.revealBanner, { borderColor: reveal.tone }]}>
@@ -296,7 +309,7 @@ export default function MatchScreen() {
   );
 }
 
-function LobbyView({ state, insets, onCancel }: any) {
+function LobbyView({ state, insets, onCancel, onStart }: any) {
   const alive = state.players_alive;
   const total = state.players_total;
   return (
@@ -348,6 +361,12 @@ function LobbyView({ state, insets, onCancel }: any) {
         </ScrollView>
       </View>
       <View style={{ padding: space.xl, paddingBottom: insets.bottom + space.lg }}>
+        {state.party_code && (
+          <Pressable testID="lobby-start-now" onPress={onStart} style={styles.startNowBtn}>
+            <MaterialCommunityIcons name="rocket-launch" size={20} color="#fff" />
+            <Text style={styles.startNowText}>START NOW</Text>
+          </Pressable>
+        )}
         <Pressable testID="lobby-cancel" onPress={onCancel} style={styles.cancelBtn}>
           <Text style={styles.cancelText}>LEAVE LOBBY</Text>
         </Pressable>
@@ -365,7 +384,7 @@ function makeTaunt(results: any, username: string): string {
   return `${username} went out at #${p}/100. Think you'd last longer? 👀`;
 }
 
-function ResultsView({ results, skinColor, username, oldXp, onExit }: any) {
+function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit }: any) {
   const insets = useSafeAreaInsets();
   const won = results.won;
   const cardRef = useRef<View>(null);
@@ -407,6 +426,7 @@ function ResultsView({ results, skinColor, username, oldXp, onExit }: any) {
         colors={won ? ["#3D2E00", "#1A1300", colors.surface] : ["#2A0705", "#160303", colors.surface]}
         style={StyleSheet.absoluteFill}
       />
+      {won && <VictoryFX type={victoryAnim} />}
       <ScrollView
         contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: space.xl, paddingTop: insets.top + space.xl }}
         showsVerticalScrollIndicator={false}
@@ -518,6 +538,20 @@ const styles = StyleSheet.create({
   hint: { fontFamily: font.regular, fontSize: type.sm, color: colors.muted, marginTop: space.md, textAlign: "center", paddingHorizontal: space.xl },
   holdXp: { fontFamily: font.displaySemi, fontSize: type.sm, color: colors.amber, marginTop: space.xs, letterSpacing: 0.5 },
   bottom: { paddingHorizontal: space.xl },
+  abilityTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+    marginHorizontal: space.md,
+    marginTop: space.sm,
+    backgroundColor: colors.surface2,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: space.sm,
+    paddingHorizontal: space.md,
+  },
+  abilityTopHint: { fontFamily: font.semi, fontSize: type.sm, color: colors.muted, letterSpacing: 0.5 },
   abilityBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -590,6 +624,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  startNowBtn: {
+    height: 54,
+    borderRadius: radius.md,
+    backgroundColor: colors.amber,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: space.sm,
+    marginBottom: space.md,
+  },
+  startNowText: { fontFamily: font.displayBold, fontSize: type.xl, color: colors.surface, letterSpacing: 1 },
   cancelText: { fontFamily: font.semi, fontSize: type.lg, color: colors.onSurface3, letterSpacing: 1 },
   // results
   recapCard: {

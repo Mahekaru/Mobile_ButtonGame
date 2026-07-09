@@ -8,10 +8,10 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from "@gorhom/bottom-sheet";
 import * as Haptics from "expo-haptics";
 
-import { colors, font, radius, space, type } from "@/src/theme";
+import { colors, font, radius, space, type, SKIN_COLORS } from "@/src/theme";
 import { useAuth } from "@/src/auth";
 import { api, ApiError } from "@/src/api";
-import { PrimaryButton } from "@/src/ui";
+import { PrimaryButton, SkinSurface } from "@/src/ui";
 
 const BG =
   "https://images.unsplash.com/photo-1642369717514-f73f300e7d32?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDZ8MHwxfHNlYXJjaHwyfHxkYXJrJTIwcmVkJTIwYWJzdHJhY3QlMjB0ZW5zaW9uJTIwdGV4dHVyZSUyMGJhY2tncm91bmR8ZW58MHx8fHwxNzgzNTY1OTQyfDA&ixlib=rb-4.1.0&q=85";
@@ -62,6 +62,8 @@ export default function PlayScreen() {
 
   const prog = user?.progression || { level: 1, rank: "Rookie", progress: 0, xp: 0 };
   const equippedAbility = user?.equipped_ability;
+  const skinId = user?.equipped_cosmetics?.button_skin || "classic";
+  const skinColor = SKIN_COLORS[skinId] || colors.red;
 
   const claim = async () => {
     if (claiming) return;
@@ -236,14 +238,15 @@ export default function PlayScreen() {
           </View>
         </Pressable>
 
-        {/* Center tension graphic */}
+        {/* Center: live equipped-skin preview */}
         <View style={styles.centerArt}>
           <View style={styles.ringOuter}>
-            <View style={styles.ringInner}>
-              <MaterialCommunityIcons name="alert-octagon" size={92} color={colors.red} />
-            </View>
+            <SkinSurface skinId={skinId} color={skinColor} size={150} radius={75}>
+              <MaterialCommunityIcons name="gesture-tap-button" size={40} color="rgba(255,255,255,0.9)" />
+              <Text style={styles.previewPress}>PRESS</Text>
+            </SkinSurface>
           </View>
-          <Text style={styles.artCaption}>THE BUTTON AWAITS</Text>
+          <Text style={styles.artCaption}>YOUR BUTTON</Text>
         </View>
 
         {/* Equipped ability */}
@@ -492,6 +495,7 @@ const styles = StyleSheet.create({
     letterSpacing: 3,
     marginTop: space.xl,
   },
+  previewPress: { fontFamily: font.displayBold, fontSize: 26, color: "#fff", letterSpacing: 2, marginTop: 2 },
   abilityRow: {
     marginHorizontal: space.xl,
     flexDirection: "row",

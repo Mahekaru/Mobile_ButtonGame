@@ -464,6 +464,18 @@ async def match_press(match_id: str, body: PressBody, user: dict = Depends(get_c
     return {"outcome": outcome, "state": match.state_for(user["_id"])}
 
 
+@api_router.post("/match/{match_id}/start")
+async def match_start(match_id: str, user: dict = Depends(get_current_user)):
+    match = manager.get(match_id)
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    if user["_id"] not in match.user_index:
+        raise HTTPException(status_code=403, detail="Not in this match")
+    if match.phase == "lobby":
+        match.start_at = 0.0  # run loop starts the match on its next tick
+    return {"ok": True}
+
+
 @api_router.post("/match/{match_id}/leave")
 async def match_leave(match_id: str, user: dict = Depends(get_current_user)):
     match = manager.get(match_id)

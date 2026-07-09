@@ -104,4 +104,5 @@ export const api = {
       body: { use_ability },
     }),
   leaveMatch: (id: string) => request<any>(`/match/${id}/leave`, { method: "POST" }),
+  startMatch: (id: string) => request<any>(`/match/${id}/start`, { method: "POST" }),
 };
