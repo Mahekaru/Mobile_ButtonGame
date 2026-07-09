@@ -12,11 +12,19 @@ import { SkinSurface } from "@/src/ui";
 
 const CATEGORIES = [
   { key: "button_skin", label: "Skins" },
+  { key: "button_fx", label: "Button FX" },
   { key: "icon", label: "Icons" },
   { key: "title", label: "Titles" },
   { key: "elim_effect", label: "Effects" },
   { key: "victory_anim", label: "Victory" },
 ];
+
+const FX_ICON: Record<string, string> = {
+  none: "circle-off-outline",
+  glow: "blur",
+  fire: "fire",
+  electric: "flash",
+};
 
 export default function CosmeticsScreen() {
   const insets = useSafeAreaInsets();
@@ -61,6 +69,10 @@ export default function CosmeticsScreen() {
   const renderPreview = (item: any) => {
     if (active === "button_skin") {
       return <SkinSurface skinId={item.id} color={item.color} pattern={item.pattern} size={64} />;
+    }
+    if (active === "button_fx") {
+      const glow = item.id === "fire" ? colors.amber : item.id === "electric" ? colors.info : item.id === "glow" ? colors.red : colors.muted;
+      return <MaterialCommunityIcons name={(FX_ICON[item.id] || "circle-outline") as any} size={44} color={glow} />;
     }
     if (active === "icon") {
       return <MaterialCommunityIcons name={item.icon as any} size={46} color={colors.onSurface} />;

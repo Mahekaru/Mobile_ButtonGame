@@ -114,6 +114,11 @@ COSMETICS = {
         {"id": "toxic", "name": "Toxic Hazard", "unlock_level": 4, "color": "#34C759", "pattern": "stripes"},
         {"id": "void", "name": "Void Grid", "unlock_level": 6, "color": "#2B2B33", "pattern": "dots"},
         {"id": "gold", "name": "Golden Shine", "unlock_level": 8, "color": "#FFCC00", "pattern": "shine"},
+        {"id": "wood", "name": "Oak Panel", "unlock_level": 3, "color": "#8B5A2B", "pattern": "wood"},
+        {"id": "retro", "name": "Retro Arcade", "unlock_level": 5, "color": "#2EC4B6", "pattern": "retro"},
+        {"id": "panic", "name": "Panic Station", "unlock_level": 7, "color": "#D7263D", "pattern": "panic"},
+        {"id": "carbon", "name": "Carbon Fiber", "unlock_level": 9, "color": "#3A3A44", "pattern": "carbon"},
+        {"id": "neon", "name": "Neon Pulse", "unlock_level": 10, "color": "#FF2E9A", "pattern": "neon"},
     ],
     "title": [
         {"id": "rookie", "name": "Rookie", "unlock_level": 1},
@@ -140,6 +145,12 @@ COSMETICS = {
         {"id": "fireworks", "name": "Fireworks", "unlock_level": 4},
         {"id": "goldrain", "name": "Gold Rain", "unlock_level": 8},
     ],
+    "button_fx": [
+        {"id": "none", "name": "None", "unlock_level": 1},
+        {"id": "glow", "name": "Aura Glow", "unlock_level": 2},
+        {"id": "fire", "name": "Inferno", "unlock_level": 5},
+        {"id": "electric", "name": "Overload", "unlock_level": 8},
+    ],
 }
 
 DEFAULT_COSMETICS = {
@@ -148,6 +159,7 @@ DEFAULT_COSMETICS = {
     "icon": "skull",
     "elim_effect": "fade",
     "victory_anim": "confetti",
+    "button_fx": "none",
 }
 
 

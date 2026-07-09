@@ -52,6 +52,11 @@ export const SKIN_COLORS: Record<string, string> = {
   toxic: "#34C759",
   void: "#2B2B33",
   gold: "#FFCC00",
+  wood: "#8B5A2B",
+  retro: "#2EC4B6",
+  panic: "#D7263D",
+  carbon: "#3A3A44",
+  neon: "#FF2E9A",
 };
 
 // Button-skin id -> pattern style
@@ -61,6 +66,11 @@ export const SKIN_PATTERNS: Record<string, string> = {
   toxic: "stripes",
   void: "dots",
   gold: "shine",
+  wood: "wood",
+  retro: "retro",
+  panic: "panic",
+  carbon: "carbon",
+  neon: "neon",
 };
 
 // Darken a hex color for gradient depth

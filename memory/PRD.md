@@ -82,3 +82,8 @@ Multiplayer battle-royale game around a single shared button. 100 players; any l
 - SIMULATED ad overlay ("GALAXY CLASH") shown in Expo Go / web preview.
 - REAL Google AdMob wired for native builds via react-native-google-mobile-ads + expo-build-properties config plugin (app.json uses Google TEST app IDs; frontend/.env has empty EXPO_PUBLIC_ADMOB_REWARDED_ANDROID/IOS for real unit IDs). src/ads.ts (native) + src/ads.web.ts (web stub) gate real ads behind adsSupported; falls back to simulated overlay when unsupported.
 - AdMob requires a native build + user's AdMob App IDs & Rewarded Ad Unit IDs to go live — not testable in preview.
+
+## Update — Interstitial Ads + Button FX + New Skins (this session)
+- Ad is now a REWARDED INTERSTITIAL shown BETWEEN the results screen and the lobby (triggered by the RETURN/CLAIM button). Watch fully = DOUBLE XP; SKIP = no reward. 3-min cooldown unchanged. Simulated overlay on web/Expo Go; real AdMob uses RewardedInterstitialAd (src/ads.ts) on native builds.
+- New cosmetic category `button_fx` (none/glow/fire/electric) renders an animated aura AROUND the panic button in-match (src/fx.tsx ButtonFX). Unlocks: glow L2, fire L5, electric L8.
+- New button skins: wood (Oak Panel L3), retro (Retro Arcade L5), panic (Panic Station L7), carbon (Carbon Fiber L9), neon (Neon Pulse L10) with new SkinSurface patterns (ui.tsx).

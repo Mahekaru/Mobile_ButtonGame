@@ -2,12 +2,13 @@ import Constants from "expo-constants";
 import { Platform } from "react-native";
 
 /**
- * AdMob rewarded ads.
+ * AdMob rewarded INTERSTITIAL ads (shown between results and the lobby).
  *
  * Real Google AdMob ads only run inside a NATIVE build (dev-client / production).
  * They do NOT work in Expo Go or the web preview because the library ships
- * custom native code. In those environments we fall back to a simulated ad
- * overlay (see AdOverlay in match/[id].tsx) so the reward loop still works.
+ * custom native code. In those environments we fall back to a simulated
+ * interstitial overlay (see AdOverlay in match/[id].tsx). Watching to
+ * completion grants the reward; skipping grants nothing.
  */
 
 // Real ad unit IDs (set these in frontend/.env once you have them from AdMob).
@@ -42,24 +43,24 @@ function getModule(): any | null {
 
 function rewardedUnitId(m: any): string {
   // Always use Google test ads in development to avoid AdMob policy strikes.
-  if (__DEV__) return m.TestIds.REWARDED;
+  if (__DEV__) return m.TestIds.REWARDED_INTERSTITIAL;
   const id = Platform.OS === "ios" ? AD_UNIT_ID_IOS : AD_UNIT_ID_ANDROID;
-  return id || m.TestIds.REWARDED;
+  return id || m.TestIds.REWARDED_INTERSTITIAL;
 }
 
 export type RewardedResult = "earned" | "closed" | "unsupported" | "error";
 
 /**
- * Loads and shows a real AdMob rewarded ad.
- * Resolves with "earned" if the user watched to completion, otherwise a
- * non-earning status. Returns "unsupported" when running where real ads can't.
+ * Loads and shows a real AdMob rewarded interstitial ad.
+ * Resolves "earned" only if the user watched to completion (EARNED_REWARD),
+ * "closed" if they skipped, "unsupported" where real ads can't run.
  */
-export function showRewardedAd(userId: string): Promise<RewardedResult> {
+export function showRewardedInterstitial(userId: string): Promise<RewardedResult> {
   const m = getModule();
   if (!m) return Promise.resolve("unsupported");
 
   return new Promise<RewardedResult>((resolve) => {
-    const { RewardedAd, RewardedAdEventType, AdEventType } = m;
+    const { RewardedInterstitialAd, RewardedAdEventType, AdEventType } = m;
     let settled = false;
     let earned = false;
     const subs: (() => void)[] = [];
@@ -72,7 +73,8 @@ export function showRewardedAd(userId: string): Promise<RewardedResult> {
     };
 
     try {
-      const ad = RewardedAd.createForAdRequest(rewardedUnitId(m), {
+      const ad = RewardedInterstitialAd.createForAdRequest(rewardedUnitId(m), {
+        requestNonPersonalizedAdsOnly: true,
         serverSideVerificationOptions: { userId, customData: "after-match" },
       });
       subs.push(
@@ -83,6 +85,7 @@ export function showRewardedAd(userId: string): Promise<RewardedResult> {
           earned = true;
         }),
       );
+      // CLOSED fires whether earned or skipped — award ONLY if EARNED_REWARD fired.
       subs.push(
         ad.addAdEventListener(AdEventType.CLOSED, () =>
           finish(earned ? "earned" : "closed"),

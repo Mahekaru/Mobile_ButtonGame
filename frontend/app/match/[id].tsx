@@ -20,11 +20,11 @@ import Animated, {
 
 import { colors, font, radius, space, type, dangerColor, SKIN_COLORS } from "@/src/theme";
 import { ABILITY_META } from "@/src/catalog";
-import { VictoryFX } from "@/src/fx";
+import { VictoryFX, ButtonFX } from "@/src/fx";
 import { levelForXp, rankName } from "@/src/progression";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/auth";
-import { adsSupported, showRewardedAd } from "@/src/ads";
+import { adsSupported, showRewardedInterstitial } from "@/src/ads";
 import { GlassCard, SkinSurface } from "@/src/ui";
 
 export default function MatchScreen() {
@@ -45,6 +45,7 @@ export default function MatchScreen() {
 
   const skinColor = SKIN_COLORS[user?.equipped_cosmetics?.button_skin || "classic"] || colors.red;
   const skinId = user?.equipped_cosmetics?.button_skin || "classic";
+  const buttonFx = user?.equipped_cosmetics?.button_fx || "none";
 
   const applyState = useCallback((s: any) => {
     offsetRef.current = Date.now() / 1000 - s.server_now;
@@ -270,20 +271,23 @@ export default function MatchScreen() {
           {Math.round(localDanger)}%
         </Text>
 
-        <Animated.View style={[btnStyle, { marginTop: space.lg }]}>
-          <Pressable testID="panic-button" onPress={onPanic} disabled={!canPress}>
-            <View style={[styles.panicOuter, { borderColor: dColor, opacity: canPress ? 1 : 0.5 }]}>
-              <SkinSurface skinId={skinId} color={skinColor} size={188} radius={94}>
-                <MaterialCommunityIcons
-                  name="gesture-tap-button"
-                  size={38}
-                  color="rgba(255,255,255,0.9)"
-                />
-                <Text style={styles.panicText}>{me?.alive ? "PRESS" : "OUT"}</Text>
-              </SkinSurface>
-            </View>
-          </Pressable>
-        </Animated.View>
+        <View style={styles.panicWrap}>
+          {me?.alive && <ButtonFX type={buttonFx} size={280} />}
+          <Animated.View style={[btnStyle, { marginTop: space.lg }]}>
+            <Pressable testID="panic-button" onPress={onPanic} disabled={!canPress}>
+              <View style={[styles.panicOuter, { borderColor: dColor, opacity: canPress ? 1 : 0.5 }]}>
+                <SkinSurface skinId={skinId} color={skinColor} size={188} radius={94}>
+                  <MaterialCommunityIcons
+                    name="gesture-tap-button"
+                    size={38}
+                    color="rgba(255,255,255,0.9)"
+                  />
+                  <Text style={styles.panicText}>{me?.alive ? "PRESS" : "OUT"}</Text>
+                </SkinSurface>
+              </View>
+            </Pressable>
+          </Animated.View>
+        </View>
 
         <Text style={styles.hint}>
           {me?.alive
@@ -400,18 +404,17 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
 
   const [showAd, setShowAd] = useState(false);
   const [adReward, setAdReward] = useState(0);
-  const [adClaimed, setAdClaimed] = useState(0);
+  const [adCanWatch, setAdCanWatch] = useState(false);
   const [adCooldown, setAdCooldown] = useState(0);
+  const [returning, setReturning] = useState(false);
   const { user } = useAuth();
+
   const claimAd = async () => {
     try {
-      const r = await api.claimAdReward();
+      await api.claimAdReward();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setAdClaimed(r.rewarded);
     } catch {
       /* ignore */
-    } finally {
-      setShowAd(false);
     }
   };
 
@@ -419,21 +422,11 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
     let active = true;
     api
       .adsStatus()
-      .then(async (s) => {
+      .then((s) => {
         if (!active) return;
         if (s.can_watch) {
           setAdReward(s.reward);
-          // On a native build, try a REAL AdMob rewarded ad first.
-          if (adsSupported) {
-            const outcome = await showRewardedAd(user?.id || "guest");
-            if (!active) return;
-            if (outcome === "earned") {
-              await claimAd();
-              return;
-            }
-            // Not earned / unsupported / error → simulated fallback overlay.
-          }
-          setShowAd(true);
+          setAdCanWatch(true);
         } else if (s.cooldown_remaining > 0) {
           setAdCooldown(s.cooldown_remaining);
         }
@@ -442,8 +435,26 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
     return () => {
       active = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Interstitial shown BETWEEN results and lobby. Watch = double XP, skip = none.
+  const handleReturn = async () => {
+    if (returning) return;
+    if (!adCanWatch) {
+      onExit();
+      return;
+    }
+    if (adsSupported) {
+      // Native build: real AdMob rewarded interstitial.
+      setReturning(true);
+      const outcome = await showRewardedInterstitial(user?.id || "guest");
+      if (outcome === "earned") await claimAd();
+      onExit();
+      return;
+    }
+    // Web / Expo Go: simulated interstitial overlay drives navigation.
+    setShowAd(true);
+  };
 
   const share = async () => {
     if (sharing) return;
@@ -543,9 +554,9 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
           <Text style={styles.shareText}>{sharing ? "SHARING…" : "SHARE RECAP"}</Text>
         </Pressable>
 
-        {adClaimed > 0 ? (
-          <Text style={[styles.adNote, { color: colors.success }]} testID="ad-claimed">
-            DOUBLE XP! +{adClaimed} bonus applied 🎉
+        {adCanWatch ? (
+          <Text style={styles.adNote} testID="ad-avail-note">
+            🎬 Watch a quick ad on exit for DOUBLE XP (+{adReward})
           </Text>
         ) : adCooldown > 0 ? (
           <Text style={styles.adNote}>Next bonus ad in {Math.ceil(adCooldown / 60)} min</Text>
@@ -553,24 +564,45 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
       </ScrollView>
 
       <View style={{ padding: space.xl, paddingBottom: insets.bottom + space.lg }}>
-        <Pressable testID="return-lobby-btn" onPress={onExit} style={styles.returnBtn}>
-          <Text style={styles.returnText}>RETURN TO LOBBY</Text>
+        <Pressable
+          testID="return-lobby-btn"
+          disabled={returning}
+          onPress={handleReturn}
+          style={styles.returnBtn}
+        >
+          <Text style={styles.returnText}>
+            {returning ? "LOADING AD…" : adCanWatch ? "CLAIM DOUBLE XP & CONTINUE" : "RETURN TO LOBBY"}
+          </Text>
         </Pressable>
       </View>
 
-      {showAd && <AdOverlay reward={adReward} onClaim={claimAd} onSkip={() => setShowAd(false)} />}
+      {showAd && (
+        <AdOverlay
+          reward={adReward}
+          onClaim={claimAd}
+          onProceed={onExit}
+        />
+      )}
     </Animated.View>
   );
 }
 
-function AdOverlay({ reward, onClaim, onSkip }: any) {
+function AdOverlay({ reward, onClaim, onProceed }: any) {
   const [left, setLeft] = useState(5);
-  const [claiming, setClaiming] = useState(false);
+  const [claimed, setClaimed] = useState(false);
+  const [busy, setBusy] = useState(false);
   useEffect(() => {
     const iv = setInterval(() => setLeft((l) => (l <= 1 ? 0 : l - 1)), 1000);
     return () => clearInterval(iv);
   }, []);
   const done = left <= 0;
+  const claim = async () => {
+    if (busy) return;
+    setBusy(true);
+    await onClaim();
+    setClaimed(true);
+    setTimeout(onProceed, 1300);
+  };
   return (
     <Animated.View entering={FadeIn.duration(200)} style={styles.adWrap} testID="ad-overlay">
       <View style={styles.adCard}>
@@ -579,7 +611,8 @@ function AdOverlay({ reward, onClaim, onSkip }: any) {
             <Text style={styles.adBadgeText}>AD</Text>
           </View>
           <Text style={styles.adHeaderText}>ADVERTISEMENT · SIMULATED</Text>
-          <Pressable testID="ad-skip" onPress={onSkip} style={styles.adSkip} hitSlop={10}>
+          {/* Skip = no reward, proceed straight to lobby */}
+          <Pressable testID="ad-skip" onPress={onProceed} style={styles.adSkip} hitSlop={10}>
             <MaterialCommunityIcons name="close" size={18} color={colors.muted} />
           </Pressable>
         </View>
@@ -593,19 +626,17 @@ function AdOverlay({ reward, onClaim, onSkip }: any) {
             ))}
           </View>
         </LinearGradient>
-        <Text style={styles.adRewardLine}>Finish this ad to earn +{reward} bonus XP (DOUBLE your match XP)</Text>
-        {done ? (
-          <Pressable
-            testID="ad-claim"
-            disabled={claiming}
-            onPress={async () => {
-              setClaiming(true);
-              await onClaim();
-            }}
-            style={styles.adClaimBtn}
-          >
+        {claimed ? (
+          <Text style={[styles.adRewardLine, { color: colors.success }]} testID="ad-claimed">
+            DOUBLE XP! +{reward} bonus applied 🎉
+          </Text>
+        ) : (
+          <Text style={styles.adRewardLine}>Watch fully to earn +{reward} bonus XP (DOUBLE your match XP). Skip = no bonus.</Text>
+        )}
+        {claimed ? null : done ? (
+          <Pressable testID="ad-claim" disabled={busy} onPress={claim} style={styles.adClaimBtn}>
             <MaterialCommunityIcons name="gift" size={20} color={colors.surface} />
-            <Text style={styles.adClaimText}>{claiming ? "…" : `CLAIM +${reward} XP`}</Text>
+            <Text style={styles.adClaimText}>{busy ? "…" : `CLAIM +${reward} XP`}</Text>
           </Pressable>
         ) : (
           <View style={styles.adCountdown}>
@@ -637,6 +668,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   dangerLabel: { fontFamily: font.displaySemi, fontSize: type.lg, color: colors.onSurface3, letterSpacing: 4 },
   dangerNum: { fontFamily: font.displayBold, fontSize: 74, lineHeight: 78 },
+  panicWrap: { alignItems: "center", justifyContent: "center" },
   panicOuter: {
     width: 208,
     height: 208,

@@ -1,0 +1,43 @@
+{
+  "summary": "Iteration 5 (rewarded interstitial between results & lobby + button_fx cosmetic category + new button skins) verified end-to-end on the public HTTPS base. BACKEND: 8/8 pytest cases in /app/backend/tests/test_iteration5.py pass. (1) GET /api/cosmetics returns categories with a NEW 'button_fx' block whose items are exactly [none(L1), glow(L2), fire(L5), electric(L8)]; (2) 'button_skin' now includes the 5 new items {wood, retro, panic, carbon, neon} alongside classic/amber/toxic/void/gold; (3) DEFAULT_COSMETICS for a fresh guest includes button_fx='none' and only classic skin unlocked; (4) POST /api/profile/cosmetic {category:'button_fx', item_id:'glow'} on a fresh (L1) guest returns 403 'Item locked'; (5) POST /api/rewards/claim on a fresh guest awards +125 XP and elevates the user to level 2; (6) After the daily-claim, GET /api/cosmetics flips glow.unlocked=true while fire/electric remain locked, and equipping glow returns 200 with equipped_cosmetics.button_fx='glow' — persisted across GET /api/profile and re-flagged equipped:true in /cosmetics. AD regression (unchanged backend semantics): (7) fresh guest -> ads/status can_watch=false, reward=0, cooldown_remaining=0; (8) join+leave -> ads/status can_watch=true, reward>0, reward==profile.progression.xp; POST /ads/reward -> user.xp doubles, 0<cooldown<=180, already_claimed=true; second POST -> 400. FRONTEND E2E (mobile 390x844, public HTTPS): AD FLOW CHANGE fully verified — (a) after finishing a match, results-screen shows recap-card, bonus-row, ad-avail-note ('Watch a quick ad on exit for DOUBLE XP (+N)'), and return-lobby-btn label is 'CLAIM DOUBLE XP & CONTINUE'; the ad-overlay is NOT auto-shown. (b) SKIP path (guest Iter5AdA): tap return-lobby-btn -> ad-overlay opens -> tap ad-skip -> navigates to lobby (Play tab visible) with XP unchanged (62 XP at match end, still 62 XP on lobby -> no double). (c) WATCH path (guest Iter5AdW): tap return-lobby-btn -> ad-overlay opens with 5s countdown -> ad-claim appears -> tap ad-claim -> ad-claimed shows 'DOUBLE XP! +329 bonus applied 🎉' -> auto-navigates to lobby with XP jumping to 658 (=329 match + 329 ad reward). (d) COOLDOWN path (guest Iter5CD): after WATCH+claim on match 1, joining match 2 within seconds -> results-screen shows plain 'Next bonus ad in 3 min' note, return-lobby-btn label reverts to 'RETURN TO LOBBY', ad-avail-note is NOT rendered, and tapping return-lobby-btn goes STRAIGHT to lobby with NO ad-overlay rendered. COSMETICS UI (guest Iter5Cos): after claiming daily (+125 -> L2) and navigating to /cosmetics -> both cat-button_skin AND cat-button_fx chips are present; selecting Button FX chip shows 4 tiles (None, Aura Glow LV2 (equippable), Inferno LV5, Overload LV8); tapping cosmetic-glow equips it and the tile shows 'ON'. Selecting the Skins chip shows tiles for cosmetic-wood/retro/panic/carbon/neon alongside the originals; all locked with LV badges (LV3/5/7/9/10) for a fresh L2 guest. BUTTON FX RENDER: Aura Glow equip persisted via /api/profile round-trip; match/[id].tsx reads buttonFx from user.equipped_cosmetics and renders <ButtonFX type={buttonFx} size={280} /> around panic-button (line 275) — verified no crash in the flow; danger-pct + panic-button remain visible.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "results-screen adNote (cooldown text)", "issue": "'Next bonus ad in 3 min' still uses the same amber `adNote` style as the availability note; on a dark elimination gradient it is legible but a slightly muted/secondary color could better distinguish 'cooldown' from 'available'. Cosmetic only. Reference: /app/frontend/app/match/[id].tsx:562", "testID": "results-screen", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "all (web preview only)", "issues": ["Custom IBMPlexSans TTF fonts fail to decode via the Expo web preview proxy (OTS parsing error / invalid sfntVersion). Falls back to system font on web only. Long-standing issue from prior iterations; does not affect native builds or any tested functionality."]}
+    ],
+    "react_native_issues": [
+      {"component": "match/[id].tsx reveal Animated.View", "issue": "'props.pointerEvents is deprecated. Use style.pointerEvents' warning surfaces on web console although style already contains pointerEvents. Same warning as iteration_4. Reference: /app/frontend/app/match/[id].tsx:306"}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration5.py",
+    "/app/test_reports/pytest/pytest_iter5.xml"
+  ],
+  "action_items": [
+    "(Optional) Bump contrast / weight or switch color on the adNote cooldown branch so 'Next bonus ad in N min' is visually distinct from the amber 'Watch a quick ad on exit …' availability note. Reference: /app/frontend/app/match/[id].tsx:562.",
+    "(Optional / informational) The find-match-btn testID still resolves to two DOM nodes on web (Expo Router keeps a hidden tab screen mounted). Not a functional bug but future E2E scripts need to filter by bounding_box > 0 or use ':visible'.",
+    "(Optional / informational) Address the residual RN-Web 'props.pointerEvents is deprecated' warning by removing the redundant style entry on the reveal Animated.View (match/[id].tsx:306)."
+  ],
+  "critical_code_review_comments": [
+    "config.py: button_fx catalog with 4 items (none/glow/fire/electric) and DEFAULT_COSMETICS['button_fx']='none' — correctly added. Unlock levels (1/2/5/8) match the review request.",
+    "config.py: button_skin extended with wood(L3), retro(L5), panic(L7), carbon(L9), neon(L10). GET /api/cosmetics returns them with proper unlocked/equipped flags; equip is gated by unlock_level in server.py POST /profile/cosmetic (403 verified).",
+    "match/[id].tsx: ResultsView.handleReturn now branches (a) NO adCanWatch -> immediate onExit (lobby), (b) adsSupported native -> real showRewardedInterstitial, (c) web fallback -> renders <AdOverlay />. Skip path calls onProceed(), Watch path calls onClaim() then onProceed() — both correctly leave the results screen. Ad reward is fetched from /api/ads/status (double the match XP) and persisted via api.claimAdReward().",
+    "match/[id].tsx: ButtonFX(type=buttonFx) wraps the panic-button only when me?.alive is true (line 275), preventing extra work during spectate/results. buttonFx is read from user.equipped_cosmetics with a safe 'none' default (line 48).",
+    "server.py _ad_state()/ads/reward still gate on last_match_id + ad_claimed_for + 180s cooldown — the second-match cooldown suppression is driven by cooldown_remaining>0, matching the observed frontend behavior."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration5.py (new)",
+    "/app/test_reports/pytest/pytest_iter5.xml (new)",
+    "/app/test_reports/iteration_5.json (new)"
+  ],
+  "success_rate": {"backend": "100% (8/8 iter5 cosmetics+ads tests; iter4 regression preserved)", "frontend": "100% of iter5 UI flow steps verified (auth, results-screen with ad-avail-note, return btn label switch, ad-overlay open, ad-skip -> no reward, ad-claim -> ad-claimed +double XP -> lobby with doubled XP, cooldown match with 'Next bonus ad in 3 min' and plain return btn, Cosmetics tab with cat-button_fx chip, cosmetic-glow equip after L2, all 5 new skins present)"},
+  "seed_data_creation": "Ephemeral guest users (Iter5AdA/AdW/CD/Cos) created per test via POST /api/auth/guest; no persistent seed data.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iteration 5 verified. Backend base https://danger-meter-3.preview.emergentagent.com/api. Key testIDs on the results-screen: return-lobby-btn, ad-avail-note (only when adCanWatch), ad-overlay (only after tapping return-lobby-btn on web/Expo Go), ad-skip, ad-claim, ad-claimed. Cooldown note is a plain <Text> without a dedicated testID — assert on the substring 'Next bonus ad in'. Cosmetics tab: cat-button_skin, cat-button_fx are the category chips; cosmetic-<id> is the item tile testID (e.g. cosmetic-glow, cosmetic-wood, ...). The Cosmetics screen is reachable directly at /cosmetics (Expo Router). Duplicate DOM caveat: [data-testid=\"find-match-btn\"] resolves to 2 nodes — filter by bounding_box.width > 100 or use ':visible' with .first. Real AdMob (RewardedInterstitialAd) is native-only; web/Expo Go always falls through to the simulated <AdOverlay /> which triggers /api/ads/reward on ad-claim.",
+  "rca_of_issue": "N/A — all requested features are functioning as designed."
+}
