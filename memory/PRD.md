@@ -87,3 +87,8 @@ Multiplayer battle-royale game around a single shared button. 100 players; any l
 - Ad is now a REWARDED INTERSTITIAL shown BETWEEN the results screen and the lobby (triggered by the RETURN/CLAIM button). Watch fully = DOUBLE XP; SKIP = no reward. 3-min cooldown unchanged. Simulated overlay on web/Expo Go; real AdMob uses RewardedInterstitialAd (src/ads.ts) on native builds.
 - New cosmetic category `button_fx` (none/glow/fire/electric) renders an animated aura AROUND the panic button in-match (src/fx.tsx ButtonFX). Unlocks: glow L2, fire L5, electric L8.
 - New button skins: wood (Oak Panel L3), retro (Retro Arcade L5), panic (Panic Station L7), carbon (Carbon Fiber L9), neon (Neon Pulse L10) with new SkinSurface patterns (ui.tsx).
+
+## Update — Ad rework, new abilities, XP curve (iteration_6 verified)
+- Ads: CONTINUE always shown -> MANDATORY full-screen ad only if 3 min since last ad (else straight to menu). Separate DOUBLE-XP button appears at RANDOM (~50%) = opt-in rewarded ad (watch=double XP, skip=none). Endpoints: /ads/status {mandatory_due,reward_available,...}, /ads/seen (new, records mandatory view), /ads/reward. Full-screen simulated overlay; real AdMob native-only.
+- New abilities (type 'active', arm-before-press): Vanish/hide L4 (5s untargetable+press-safe), Overcharge L6 (3x match XP, +15 danger surcharge), Adrenaline L8 (2x patience XP), Steady Hand L10 (freeze danger 6s).
+- XP curve steepened: xp_for_level = 100*(n-1)*n (L2=200, L5=2000); compute_match_xp reduced (base 20, kills*18, win 150, placement//3) -> standard slower progression.

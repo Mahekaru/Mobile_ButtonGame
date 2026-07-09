@@ -303,7 +303,8 @@ export default function MatchScreen() {
       {reveal && (
         <Animated.View
           entering={revealEntering}
-          style={[styles.revealWrap, { pointerEvents: "none" }]}
+          pointerEvents="none"
+          style={styles.revealWrap}
         >
           <View style={[styles.revealBanner, { borderColor: reveal.tone }]}>
             <Text style={[styles.revealText, { color: reveal.tone }]}>{reveal.text}</Text>
