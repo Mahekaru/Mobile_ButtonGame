@@ -308,8 +308,7 @@ export default function MatchScreen() {
       {reveal && (
         <Animated.View
           entering={revealEntering}
-          pointerEvents="none"
-          style={styles.revealWrap}
+          style={[styles.revealWrap, { pointerEvents: "none" }]}
         >
           <View style={[styles.revealBanner, { borderColor: reveal.tone }]}>
             <Text style={[styles.revealText, { color: reveal.tone }]}>{reveal.text}</Text>
@@ -709,7 +708,7 @@ function AdOverlay({ mode, reward, onSkip, onClaim, onProceed }: any) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   hudRow: { flexDirection: "row", paddingHorizontal: space.md, gap: space.sm },
-  feedCard: { flex: 1.4, height: 150 },
+  feedCard: { flex: 1.4 },
   feedTitle: {
     fontFamily: font.semi,
     fontSize: 10,
