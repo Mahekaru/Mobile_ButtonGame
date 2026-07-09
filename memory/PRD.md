@@ -75,3 +75,10 @@ Multiplayer battle-royale game around a single shared button. 100 players; any l
 ## Known Notes
 - Full 100→1 matches take several minutes; humans typically exit mid-match (battle-royale variance) — expected.
 - Web preview falls back to system font for the custom TTFs over the proxy; native builds load them correctly.
+
+## Rewarded Ads (User Request 6 — DONE, iteration_4 verified)
+- After each match, user can watch a rewarded ad for DOUBLE match XP; 3-min cooldown (AD_COOLDOWN_SEC=180) blocks repeat bonus.
+- Backend: GET /api/ads/status, POST /api/ads/reward; reward = last_match_xp, idempotent per match (ad_claimed_for).
+- SIMULATED ad overlay ("GALAXY CLASH") shown in Expo Go / web preview.
+- REAL Google AdMob wired for native builds via react-native-google-mobile-ads + expo-build-properties config plugin (app.json uses Google TEST app IDs; frontend/.env has empty EXPO_PUBLIC_ADMOB_REWARDED_ANDROID/IOS for real unit IDs). src/ads.ts (native) + src/ads.web.ts (web stub) gate real ads behind adsSupported; falls back to simulated overlay when unsupported.
+- AdMob requires a native build + user's AdMob App IDs & Rewarded Ad Unit IDs to go live — not testable in preview.

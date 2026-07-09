@@ -826,6 +826,14 @@ const styles = StyleSheet.create({
     marginTop: space.xl,
   },
   shareText: { fontFamily: font.displaySemi, fontSize: type.lg, color: "#fff", letterSpacing: 1 },
+  adNote: {
+    fontFamily: font.displaySemi,
+    fontSize: type.sm,
+    color: colors.amber,
+    textAlign: "center",
+    marginTop: space.md,
+    letterSpacing: 0.5,
+  },
   returnBtn: {
     height: 56,
     borderRadius: radius.md,
