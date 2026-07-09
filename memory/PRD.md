@@ -22,6 +22,15 @@ Multiplayer battle-royale game around a single shared button. 100 players; any l
 ## Core Requirements (static)
 - 100-player matches, bot backfill, shared button, danger meter, presser-vs-random elimination, kill protection, persistent progression, rank-gated abilities (equip one), cosmetics, stats.
 
+## Implemented (2026-06 / build 2 — social loop)
+- **Name-only onboarding**: removed email/password; `POST /api/auth/guest {username}` creates a device-bound account with a unique 6-char friend code (JWT token persisted in secure storage). Old email/password endpoints retained but unused.
+- **Friends**: friend codes, mutual add-by-code (`/api/friends`, `/api/friends/add`), Friends screen with share-invite (native share sheet) + squad list.
+- **Rivals**: after each match, the other humans in it are recorded as future "rivals" (`$addToSet`).
+- **Social bonus XP**: KO a friend in-match = +50 XP, KO a rival = +25 XP (verified deterministically + via results payload).
+- **Shareable recap card**: Results screen renders a branded, capture-ready recap (placement, kills, XP, KO bonuses, auto-generated taunt) with one-tap Share (react-native-view-shot + expo-sharing on native, text share fallback on web).
+- **Lobby** no longer shows the human count.
+- Verified: 11/11 new social tests + 20/20 core regression pass; recap card + share confirmed on preview.
+
 ## Implemented (2026-06 / build 1)
 - JWT auth (register/login/me).
 - Profile/progression: XP, level, rank tiers, unlocked abilities, equipped cosmetics.
