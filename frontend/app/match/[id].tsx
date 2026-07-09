@@ -1,0 +1,518 @@
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { View, StyleSheet, Text, Pressable, ScrollView } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import * as Haptics from "expo-haptics";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  FadeInDown,
+  FadeIn,
+} from "react-native-reanimated";
+
+import { colors, font, radius, space, type, dangerColor, SKIN_COLORS } from "@/src/theme";
+import { ABILITY_META } from "@/src/catalog";
+import { api } from "@/src/api";
+import { useAuth } from "@/src/auth";
+import { GlassCard } from "@/src/ui";
+
+export default function MatchScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { user, refresh } = useAuth();
+
+  const [state, setState] = useState<any>(null);
+  const [localDanger, setLocalDanger] = useState(5);
+  const [armed, setArmed] = useState(false);
+  const [pressing, setPressing] = useState(false);
+  const [reveal, setReveal] = useState<{ text: string; tone: string } | null>(null);
+
+  const offsetRef = useRef(0); // clientNowSec - serverNow
+  const endedRef = useRef(false);
+  const scale = useSharedValue(1);
+
+  const skinColor = SKIN_COLORS[user?.equipped_cosmetics?.button_skin || "classic"] || colors.red;
+
+  const applyState = useCallback((s: any) => {
+    offsetRef.current = Date.now() / 1000 - s.server_now;
+    setState(s);
+    if (s.results) endedRef.current = true;
+  }, []);
+
+  const fetchState = useCallback(async () => {
+    try {
+      const s = await api.matchState(id);
+      applyState(s);
+    } catch {
+      /* transient */
+    }
+  }, [id, applyState]);
+
+  // Poll match state
+  useEffect(() => {
+    fetchState();
+    const iv = setInterval(() => {
+      if (!endedRef.current) fetchState();
+    }, 700);
+    return () => clearInterval(iv);
+  }, [fetchState]);
+
+  // Client-side danger animation
+  useEffect(() => {
+    const iv = setInterval(() => {
+      if (!state || state.phase !== "active") {
+        setLocalDanger(state?.config?.base ?? 5);
+        return;
+      }
+      const nowSec = Date.now() / 1000 - offsetRef.current;
+      const elapsed = nowSec - state.last_press_at;
+      const { base, slope, cap } = state.config;
+      const d = Math.max(base, Math.min(cap, base + elapsed * slope));
+      setLocalDanger(d);
+    }, 100);
+    return () => clearInterval(iv);
+  }, [state]);
+
+  const showReveal = (outcome: any) => {
+    let text = "";
+    let tone = colors.red;
+    if (outcome.saved) {
+      text = "ABILITY SAVED YOU!";
+      tone = colors.success;
+    } else if (outcome.self_death) {
+      text = "YOU PANICKED";
+      tone = colors.red;
+    } else if (outcome.victims.length > 1) {
+      text = `DOUBLE KILL: ${outcome.victims.join(" & ")}`;
+      tone = colors.amber;
+    } else if (outcome.victims.length === 1) {
+      text = `ELIMINATED: ${outcome.victims[0]}`;
+      tone = colors.amber;
+    } else {
+      text = "SURVIVED";
+      tone = colors.success;
+    }
+    setReveal({ text, tone });
+    setTimeout(() => setReveal(null), 1600);
+  };
+
+  const me = state?.me;
+  const canPress = state?.phase === "active" && me?.alive && !pressing && !state?.results;
+
+  const onPanic = async () => {
+    if (!canPress) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    scale.value = withTiming(0.88, { duration: 70 }, () => {
+      scale.value = withSpring(1, { damping: 8, stiffness: 200 });
+    });
+    setPressing(true);
+    try {
+      const { outcome, state: newState } = await api.press(id, armed);
+      setArmed(false);
+      applyState(newState);
+      showReveal(outcome);
+      if (outcome.self_death) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+    } catch {
+      /* someone else pressed first */
+    } finally {
+      setPressing(false);
+    }
+  };
+
+  const btnStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  const leave = async () => {
+    endedRef.current = true;
+    api.leaveMatch(id).catch(() => {});
+    await refresh();
+    router.replace("/(tabs)");
+  };
+
+  const dColor = dangerColor(localDanger);
+
+  // ---- Results overlay ----
+  if (state?.results) {
+    return <ResultsView results={state.results} skinColor={skinColor} onExit={leave} />;
+  }
+
+  // ---- Lobby ----
+  if (state && state.phase === "lobby") {
+    return (
+      <LobbyView state={state} insets={insets} onCancel={leave} />
+    );
+  }
+
+  const ability = me?.ability ? ABILITY_META[me.ability] : null;
+
+  return (
+    <View style={styles.root} testID="match-screen">
+      <LinearGradient
+        colors={["#2A0705", "#160303", colors.surface]}
+        locations={[0, 0.45, 1]}
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* HUD row */}
+      <View style={[styles.hudRow, { paddingTop: insets.top + space.sm }]}>
+        <GlassCard testID="elim-feed" style={styles.feedCard} intensity={25}>
+          <Text style={styles.feedTitle}>ELIMINATION FEED</Text>
+          <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 108 }}>
+            {(state?.feed || []).length === 0 && (
+              <Text style={styles.feedEmpty}>Awaiting first press…</Text>
+            )}
+            {(state?.feed || []).map((f: any) => (
+              <Text key={f.id} style={styles.feedLine} numberOfLines={1}>
+                {f.type === "win" ? (
+                  <Text style={{ color: colors.warning }}>👑 {f.victim} WINS</Text>
+                ) : f.self ? (
+                  <Text><Text style={{ color: colors.red }}>{f.victim}</Text> panicked</Text>
+                ) : (
+                  <Text>
+                    <Text style={{ color: colors.amber }}>{f.killer}</Text>
+                    {" ✕ "}
+                    <Text style={{ color: colors.onSurface3 }}>{f.victim}</Text>
+                  </Text>
+                )}
+              </Text>
+            ))}
+          </ScrollView>
+        </GlassCard>
+
+        <View style={styles.statsCol}>
+          <GlassCard style={styles.statCard} intensity={25}>
+            <Text style={styles.statNum} testID="remaining-count">{state?.players_alive ?? "—"}</Text>
+            <Text style={styles.statCap}>REMAINING</Text>
+          </GlassCard>
+          <GlassCard style={styles.statCard} intensity={25}>
+            <Text style={[styles.statNum, { color: colors.amber }]} testID="kill-count">
+              {me?.kills ?? 0}
+            </Text>
+            <Text style={styles.statCap}>KILLS · {me?.protection ?? 0}% PROT</Text>
+          </GlassCard>
+        </View>
+      </View>
+
+      {/* Center: danger + button */}
+      <View style={styles.center}>
+        <Text style={styles.dangerLabel}>DANGER</Text>
+        <Text style={[styles.dangerNum, { color: dColor }]} testID="danger-pct">
+          {Math.round(localDanger)}%
+        </Text>
+
+        <Animated.View style={[btnStyle, { marginTop: space.xl }]}>
+          <Pressable testID="panic-button" onPress={onPanic} disabled={!canPress}>
+            <View style={[styles.panicOuter, { borderColor: dColor, opacity: canPress ? 1 : 0.5 }]}>
+              <LinearGradient
+                colors={[skinColor, shade(skinColor)]}
+                style={styles.panicInner}
+              >
+                <MaterialCommunityIcons
+                  name="gesture-tap-button"
+                  size={44}
+                  color="rgba(255,255,255,0.9)"
+                />
+                <Text style={styles.panicText}>{me?.alive ? "PRESS" : "OUT"}</Text>
+              </LinearGradient>
+            </View>
+          </Pressable>
+        </Animated.View>
+
+        <Text style={styles.hint}>
+          {me?.alive ? "Someone dies. Maybe you." : "You are spectating…"}
+        </Text>
+      </View>
+
+      {/* Bottom: ability */}
+      <View style={[styles.bottom, { paddingBottom: insets.bottom + space.lg }]}>
+        {ability ? (
+          <Pressable
+            testID="ability-button"
+            disabled={me?.ability_used || !me?.alive || ability.type === "defensive"}
+            onPress={() => {
+              if (ability.type === "offensive" && !me?.ability_used) {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setArmed((a) => !a);
+              }
+            }}
+            style={[
+              styles.abilityBtn,
+              armed && ability.type === "offensive" && styles.abilityArmed,
+              me?.ability_used && styles.abilityUsed,
+            ]}
+          >
+            <MaterialCommunityIcons
+              name={ability.icon as any}
+              size={22}
+              color={me?.ability_used ? colors.muted : armed ? "#fff" : colors.amber}
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.abilityName, me?.ability_used && { color: colors.muted }]}>
+                {ability.name}
+              </Text>
+              <Text style={styles.abilityHint}>
+                {me?.ability_used
+                  ? "USED"
+                  : ability.type === "defensive"
+                    ? "AUTO · triggers if selected"
+                    : armed
+                      ? "ARMED · your next press"
+                      : `TAP TO ARM · ${ability.short}`}
+              </Text>
+            </View>
+          </Pressable>
+        ) : (
+          <View style={[styles.abilityBtn, { opacity: 0.6 }]}>
+            <MaterialCommunityIcons name="flash-off" size={22} color={colors.muted} />
+            <Text style={styles.abilityHint}>No ability equipped</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Reveal banner */}
+      {reveal && (
+        <Animated.View
+          entering={FadeInDown.springify().damping(14)}
+          style={styles.revealWrap}
+          pointerEvents="none"
+        >
+          <View style={[styles.revealBanner, { borderColor: reveal.tone }]}>
+            <Text style={[styles.revealText, { color: reveal.tone }]}>{reveal.text}</Text>
+          </View>
+        </Animated.View>
+      )}
+    </View>
+  );
+}
+
+function LobbyView({ state, insets, onCancel }: any) {
+  const alive = state.players_alive;
+  const total = state.players_total;
+  return (
+    <View style={styles.root} testID="lobby-screen">
+      <LinearGradient colors={["#2A0705", colors.surface]} style={StyleSheet.absoluteFill} />
+      <View style={{ paddingTop: insets.top + space.xl, alignItems: "center", flex: 1, paddingHorizontal: space.xl }}>
+        <Text style={styles.lobbyTitle}>LOBBY</Text>
+        <Text style={styles.lobbyCountdown} testID="lobby-countdown">
+          {Math.ceil(state.countdown ?? 0)}
+        </Text>
+        <Text style={styles.lobbySub}>Match starts soon · filling with bots</Text>
+
+        <View style={styles.lobbyMeter}>
+          <View style={[styles.lobbyFill, { width: `${(alive / total) * 100}%` }]} />
+        </View>
+        <Text style={styles.lobbyCount}>
+          {alive} / {total} operatives · {state.humans} human
+        </Text>
+
+        <ScrollView style={{ marginTop: space.xl, width: "100%" }} showsVerticalScrollIndicator={false}>
+          <View style={styles.lobbyGrid}>
+            {(state.lobby_players || []).map((p: any, i: number) => (
+              <View key={i} style={styles.lobbyChip}>
+                <MaterialCommunityIcons
+                  name={p.is_bot ? "robot" : "account"}
+                  size={14}
+                  color={p.is_bot ? colors.muted : colors.amber}
+                />
+                <Text style={styles.lobbyChipText} numberOfLines={1}>{p.name}</Text>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+      </View>
+      <View style={{ padding: space.xl, paddingBottom: insets.bottom + space.lg }}>
+        <Pressable testID="lobby-cancel" onPress={onCancel} style={styles.cancelBtn}>
+          <Text style={styles.cancelText}>LEAVE LOBBY</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function ResultsView({ results, skinColor, onExit }: any) {
+  const insets = useSafeAreaInsets();
+  const won = results.won;
+  return (
+    <Animated.View entering={FadeIn.duration(300)} style={styles.root} testID="results-screen">
+      <LinearGradient
+        colors={won ? ["#3D2E00", "#1A1300", colors.surface] : ["#2A0705", "#160303", colors.surface]}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: space.xl }}>
+        <MaterialCommunityIcons
+          name={won ? "trophy" : "skull"}
+          size={72}
+          color={won ? colors.warning : colors.red}
+        />
+        <Text style={[styles.resultTitle, { color: won ? colors.warning : colors.red }]}>
+          {won ? "LAST ALIVE" : "ELIMINATED"}
+        </Text>
+        <Text style={styles.resultPlace} testID="result-placement">
+          {won ? "1st of 100" : `#${results.placement} of 100`}
+        </Text>
+
+        <View style={styles.resultStats}>
+          <View style={styles.resultStat}>
+            <Text style={styles.resultStatNum}>{results.kills}</Text>
+            <Text style={styles.resultStatCap}>ELIMINATIONS</Text>
+          </View>
+          <View style={styles.resultDivider} />
+          <View style={styles.resultStat}>
+            <Text style={[styles.resultStatNum, { color: colors.amber }]}>+{results.xp_gained}</Text>
+            <Text style={styles.resultStatCap}>XP EARNED</Text>
+          </View>
+        </View>
+
+        {results.self_eliminated && (
+          <Text style={styles.selfElim}>You pressed the button on yourself.</Text>
+        )}
+      </View>
+      <View style={{ padding: space.xl, paddingBottom: insets.bottom + space.lg }}>
+        <Pressable testID="return-lobby-btn" onPress={onExit} style={styles.returnBtn}>
+          <Text style={styles.returnText}>RETURN TO LOBBY</Text>
+        </Pressable>
+      </View>
+    </Animated.View>
+  );
+}
+
+// darken a hex color for gradient depth
+function shade(hex: string): string {
+  const h = hex.replace("#", "");
+  const n = parseInt(h.length === 3 ? h.split("").map((c) => c + c).join("") : h, 16);
+  const r = Math.max(0, ((n >> 16) & 255) - 55);
+  const g = Math.max(0, ((n >> 8) & 255) - 55);
+  const b = Math.max(0, (n & 255) - 55);
+  return `rgb(${r},${g},${b})`;
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.surface },
+  hudRow: { flexDirection: "row", paddingHorizontal: space.md, gap: space.sm },
+  feedCard: { flex: 1.4, height: 150 },
+  feedTitle: {
+    fontFamily: font.semi,
+    fontSize: 10,
+    color: colors.muted,
+    letterSpacing: 1,
+    marginBottom: space.xs,
+  },
+  feedEmpty: { fontFamily: font.regular, fontSize: type.sm, color: colors.muted },
+  feedLine: { fontFamily: font.medium, fontSize: type.sm, marginBottom: 3, color: colors.onSurface2 },
+  statsCol: { flex: 1, gap: space.sm },
+  statCard: { alignItems: "center", paddingVertical: space.sm },
+  statNum: { fontFamily: font.displayBold, fontSize: 34, color: colors.onSurface, lineHeight: 38 },
+  statCap: { fontFamily: font.medium, fontSize: 9, color: colors.muted, letterSpacing: 0.5 },
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  dangerLabel: { fontFamily: font.displaySemi, fontSize: type.xl, color: colors.onSurface3, letterSpacing: 4 },
+  dangerNum: { fontFamily: font.displayBold, fontSize: 92, lineHeight: 96 },
+  panicOuter: {
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    borderWidth: 4,
+    padding: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  panicInner: {
+    flex: 1,
+    width: "100%",
+    borderRadius: 120,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  panicText: { fontFamily: font.displayBold, fontSize: 40, color: "#fff", letterSpacing: 2, marginTop: 4 },
+  hint: { fontFamily: font.regular, fontSize: type.base, color: colors.muted, marginTop: space.xl },
+  bottom: { paddingHorizontal: space.xl },
+  abilityBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.md,
+    backgroundColor: colors.surface2,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: space.lg,
+  },
+  abilityArmed: { borderColor: colors.amber, backgroundColor: "#3A2A00" },
+  abilityUsed: { opacity: 0.6 },
+  abilityName: { fontFamily: font.semi, fontSize: type.lg, color: colors.onSurface },
+  abilityHint: { fontFamily: font.medium, fontSize: type.sm, color: colors.muted, marginTop: 1 },
+  revealWrap: { position: "absolute", top: "38%", left: 0, right: 0, alignItems: "center" },
+  revealBanner: {
+    backgroundColor: "rgba(15,15,19,0.92)",
+    borderWidth: 2,
+    borderRadius: radius.md,
+    paddingVertical: space.md,
+    paddingHorizontal: space.xl,
+  },
+  revealText: { fontFamily: font.displayBold, fontSize: type["2xl"], letterSpacing: 1 },
+  // lobby
+  lobbyTitle: { fontFamily: font.displaySemi, fontSize: type.xl, color: colors.onSurface3, letterSpacing: 4 },
+  lobbyCountdown: { fontFamily: font.displayBold, fontSize: 96, color: colors.red, lineHeight: 100 },
+  lobbySub: { fontFamily: font.regular, fontSize: type.base, color: colors.muted, marginBottom: space.xl },
+  lobbyMeter: {
+    width: "100%",
+    height: 10,
+    backgroundColor: colors.surface2,
+    borderRadius: radius.pill,
+    overflow: "hidden",
+  },
+  lobbyFill: { height: "100%", backgroundColor: colors.red, borderRadius: radius.pill },
+  lobbyCount: { fontFamily: font.displaySemi, fontSize: type.lg, color: colors.onSurface2, marginTop: space.md },
+  lobbyGrid: { flexDirection: "row", flexWrap: "wrap", gap: space.sm, justifyContent: "center" },
+  lobbyChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: colors.surface2,
+    borderRadius: radius.pill,
+    paddingHorizontal: space.md,
+    paddingVertical: 6,
+    maxWidth: 140,
+  },
+  lobbyChipText: { fontFamily: font.medium, fontSize: type.sm, color: colors.onSurface3 },
+  cancelBtn: {
+    height: 52,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelText: { fontFamily: font.semi, fontSize: type.lg, color: colors.onSurface3, letterSpacing: 1 },
+  // results
+  resultTitle: { fontFamily: font.displayBold, fontSize: 56, letterSpacing: 2, marginTop: space.md },
+  resultPlace: { fontFamily: font.displaySemi, fontSize: type["2xl"], color: colors.onSurface, marginTop: space.xs },
+  resultStats: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: space["2xl"],
+    backgroundColor: colors.surface2,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: space.lg,
+    paddingHorizontal: space["2xl"],
+  },
+  resultStat: { alignItems: "center", minWidth: 100 },
+  resultStatNum: { fontFamily: font.displayBold, fontSize: 40, color: colors.onSurface },
+  resultStatCap: { fontFamily: font.medium, fontSize: type.sm, color: colors.muted, letterSpacing: 0.5 },
+  resultDivider: { width: 1, height: 44, backgroundColor: colors.border, marginHorizontal: space.lg },
+  selfElim: { fontFamily: font.regular, fontSize: type.base, color: colors.red, marginTop: space.xl },
+  returnBtn: {
+    height: 56,
+    borderRadius: radius.md,
+    backgroundColor: colors.red,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  returnText: { fontFamily: font.displayBold, fontSize: type.xl, color: "#fff", letterSpacing: 1 },
+});
