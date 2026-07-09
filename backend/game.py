@@ -72,6 +72,7 @@ class Player:
         self.hold_multiplier = 1.0        # adrenaline: multiplies banked patience XP
         self.freeze_until = 0.0           # steady: danger frozen until this ts
         self.frozen_danger = 0.0          # steady: value to hold while frozen
+        self.self_safe_until = 0.0        # failsafe: no self-elimination until this ts
 
 
 class Match:
@@ -243,6 +244,15 @@ class Match:
                 presser.freeze_until = now() + 6.0
                 presser.ability_used = True
                 ability_note = "steady"
+            elif presser.ability == "failsafe":
+                # Cannot self-eliminate for 2 seconds after pressing.
+                presser.self_safe_until = now() + 2.0
+                presser.ability_used = True
+                ability_note = "failsafe"
+
+        # Failsafe grace window: no self-elimination while active.
+        if presser.self_safe_until and now() < presser.self_safe_until:
+            self_chance = 0.0
 
         outcome = {"presser": presser.name, "danger": round(danger, 1),
                    "self_death": False, "victims": [], "ability": ability_note,

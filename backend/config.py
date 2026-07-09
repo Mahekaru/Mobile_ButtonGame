@@ -123,6 +123,12 @@ ABILITIES = [
         "type": "active",
         "desc": "Once per match: freeze your danger meter for 6 seconds after you press.",
     },
+    {
+        "id": "failsafe", "name": "Failsafe", "icon": "shield-check",
+        "unlock_level": 3,
+        "type": "active",
+        "desc": "Once per match: for 2 seconds after you press, you cannot eliminate yourself.",
+    },
 ]
 ABILITY_BY_ID = {a["id"]: a for a in ABILITIES}
 DEFENSIVE_ABILITIES = {a["id"] for a in ABILITIES if a["type"] == "defensive"}

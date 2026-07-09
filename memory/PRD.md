@@ -98,3 +98,10 @@ Multiplayer battle-royale game around a single shared button. 100 players; any l
 - Cosmetics category chips now WRAP into 2 rows (no horizontal scroll) so all 6 are always reachable (cosmetics.tsx).
 - Tab bar height/paddingBottom now include useSafeAreaInsets bottom so buttons aren't cut off on devices with a home indicator ((tabs)/_layout.tsx).
 - ButtonFX rewritten with reanimated: glow = layered breathing bloom (GlowAura); fire = warm base bloom + 20 gradient flame tongues rising/flickering (fx.tsx). electric unchanged.
+
+## Update — Failsafe ability, intense glow, press burst, HUD align, bottom clearance
+- New ability 'failsafe' (Failsafe, L3, active): for 2s after you press you cannot self-eliminate (game.py self_safe_until; resolve_press zeroes self_chance in window).
+- Glow FX reworked to an intense light-leak bloom: large outward disc bleed (f up to 1.85×) + bright pulsing rim ring with colored shadow (fx.tsx GlowAura/GlowRim). Fire flames now hug the button edge (R=size*0.5).
+- New PressBurst FX (fx.tsx): one-shot ring+sparks fired on every panic press, tinted by button_fx (fire/electric/glow) or skin color otherwise (match onPanic -> burstKey).
+- HUD: elimination-feed bottom aligned with KILLS card bottom (statCard flex:1).
+- Bottom-button clearance bumped: tab bar includes safe-area inset; menu footer insets.bottom+96; results/lobby footers insets.bottom+space.xl.

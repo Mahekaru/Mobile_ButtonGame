@@ -104,37 +104,72 @@ function Layer({ children }: { children: React.ReactNode }) {
   );
 }
 
-// --- GLOW: a soft breathing bloom made of layered translucent discs ---------
+// --- GLOW: intense light-leak bloom — big outward bleed + bright pulsing rim -
+// f is a multiple of the button radius; layers >1 bleed OUTSIDE the button edge.
 const GLOW_LAYERS = [
-  { f: 1.0, color: "rgba(255,59,48,0.14)" },
-  { f: 0.84, color: "rgba(255,94,40,0.18)" },
-  { f: 0.68, color: "rgba(255,120,32,0.24)" },
-  { f: 0.54, color: "rgba(255,149,0,0.30)" },
-  { f: 0.42, color: "rgba(255,201,128,0.38)" },
+  { f: 1.85, color: "rgba(255,64,32,0.10)" },
+  { f: 1.55, color: "rgba(255,92,28,0.16)" },
+  { f: 1.32, color: "rgba(255,120,20,0.24)" },
+  { f: 1.14, color: "rgba(255,150,0,0.34)" },
+  { f: 1.02, color: "rgba(255,196,96,0.46)" },
 ];
 
 function GlowDisc({ t, discSize, color }: { t: Animated.SharedValue<number>; discSize: number; color: string }) {
   const style = useAnimatedStyle(() => ({
-    transform: [{ scale: interpolate(t.value, [0, 1], [0.88, 1.12]) }],
-    opacity: interpolate(t.value, [0, 1], [0.6, 1]),
+    transform: [{ scale: interpolate(t.value, [0, 1], [0.8, 1.18]) }],
+    opacity: interpolate(t.value, [0, 1], [0.4, 1]),
   }));
   return (
     <Layer>
-      <Animated.View style={[{ width: discSize, height: discSize, borderRadius: discSize / 2, backgroundColor: color }, style]} />
+      <Animated.View
+        style={[{ width: discSize, height: discSize, borderRadius: discSize / 2, backgroundColor: color }, style]}
+      />
+    </Layer>
+  );
+}
+
+// Bright ring hugging the button edge — reads as light leaking out of the seams.
+function GlowRim({ t, discSize }: { t: Animated.SharedValue<number>; discSize: number }) {
+  const style = useAnimatedStyle(() => ({
+    opacity: interpolate(t.value, [0, 1], [0.35, 0.95]),
+    transform: [{ scale: interpolate(t.value, [0, 1], [0.98, 1.07]) }],
+  }));
+  return (
+    <Layer>
+      <Animated.View
+        style={[
+          {
+            width: discSize,
+            height: discSize,
+            borderRadius: discSize / 2,
+            borderWidth: 5,
+            borderColor: "rgba(255,204,128,0.95)",
+            shadowColor: "#FF9500",
+            shadowOpacity: 0.9,
+            shadowRadius: 22,
+            shadowOffset: { width: 0, height: 0 },
+            elevation: 18,
+          },
+          style,
+        ]}
+      />
     </Layer>
   );
 }
 
 function GlowAura({ size }: { size: number }) {
+  // size ≈ button diameter. base = radius unit used by the layers.
+  const base = size;
   const t = useSharedValue(0);
   useEffect(() => {
-    t.value = withRepeat(withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }), -1, true);
+    t.value = withRepeat(withTiming(1, { duration: 1350, easing: Easing.inOut(Easing.ease) }), -1, true);
   }, []);
   return (
     <>
       {GLOW_LAYERS.map((l, i) => (
-        <GlowDisc key={i} t={t} discSize={size * l.f} color={l.color} />
+        <GlowDisc key={i} t={t} discSize={base * l.f} color={l.color} />
       ))}
+      <GlowRim t={t} discSize={base * 1.05} />
     </>
   );
 }
@@ -162,12 +197,12 @@ function Flame({ index, size, total }: { index: number; size: number; total: num
       withRepeat(withTiming(1, { duration: dur, easing: Easing.out(Easing.quad) }), -1, false),
     );
   }, []);
-  // Spread flames across the lower ~270° arc, biased toward the bottom.
+  // Spread flames across the lower ~270° arc, hugging the button edge.
   const arc = Math.PI * 1.5;
   const a = Math.PI * 0.75 + (index / (total - 1)) * arc;
-  const R = size * 0.4;
+  const R = size * 0.5;
   const bx = Math.cos(a) * R;
-  const by = Math.sin(a) * R * 0.72 + size * 0.05;
+  const by = Math.sin(a) * R * 0.7 + size * 0.04;
   const csize = 13 + (index % 3) * 5;
   const sway = ((index % 5) - 2) * 4;
   const style = useAnimatedStyle(() => {
@@ -229,14 +264,14 @@ function ElectricArc({ size }: { size: number }) {
   );
 }
 
-export function ButtonFX({ type, size = 260 }: { type?: string; size?: number }) {
+export function ButtonFX({ type, size = 210 }: { type?: string; size?: number }) {
   if (!type || type === "none") return null;
   return (
     <View
       pointerEvents="none"
-      style={{ position: "absolute", width: size, height: size, alignItems: "center", justifyContent: "center" }}
+      style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center" }]}
     >
-      {type === "glow" && <GlowAura size={size * 0.92} />}
+      {type === "glow" && <GlowAura size={size} />}
       {type === "fire" && (
         <>
           <FireBase size={size} />
@@ -246,6 +281,72 @@ export function ButtonFX({ type, size = 260 }: { type?: string; size?: number })
         </>
       )}
       {type === "electric" && <ElectricArc size={size} />}
+    </View>
+  );
+}
+
+// --- PRESS BURST: one-shot click FX played each time the button is pressed ----
+const BURST_TINT: Record<string, string> = {
+  fire: "#FF7A18",
+  electric: "#00E5FF",
+  glow: "#FF3B30",
+};
+
+function BurstSpark({
+  index,
+  p,
+  color,
+  total,
+}: {
+  index: number;
+  p: Animated.SharedValue<number>;
+  color: string;
+  total: number;
+}) {
+  const a = (index / total) * Math.PI * 2;
+  const style = useAnimatedStyle(() => {
+    const d = interpolate(p.value, [0, 1], [46, 128]);
+    return {
+      opacity: interpolate(p.value, [0, 0.2, 1], [0, 1, 0]),
+      transform: [
+        { translateX: Math.cos(a) * d },
+        { translateY: Math.sin(a) * d },
+        { scale: interpolate(p.value, [0, 1], [1, 0.25]) },
+      ],
+    };
+  });
+  return (
+    <Layer>
+      <Animated.View style={[{ width: 10, height: 10, borderRadius: 5, backgroundColor: color }, style]} />
+    </Layer>
+  );
+}
+
+export function PressBurst({ type, color, size = 210 }: { type?: string; color?: string; size?: number }) {
+  const p = useSharedValue(0);
+  useEffect(() => {
+    p.value = withTiming(1, { duration: 540, easing: Easing.out(Easing.quad) });
+  }, []);
+  const tint = (type && BURST_TINT[type]) || color || "#FF3B30";
+  const ring = useAnimatedStyle(() => ({
+    opacity: interpolate(p.value, [0, 0.1, 1], [0, 0.85, 0]),
+    transform: [{ scale: interpolate(p.value, [0, 1], [0.55, 2.2]) }],
+  }));
+  const N = 10;
+  const rSize = size * 0.7;
+  return (
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center" }]}>
+      <Layer>
+        <Animated.View
+          style={[
+            { width: rSize, height: rSize, borderRadius: rSize / 2, borderWidth: 4, borderColor: tint },
+            ring,
+          ]}
+        />
+      </Layer>
+      {Array.from({ length: N }).map((_, i) => (
+        <BurstSpark key={i} index={i} p={p} color={tint} total={N} />
+      ))}
     </View>
   );
 }

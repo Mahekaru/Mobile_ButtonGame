@@ -53,4 +53,10 @@ export const ABILITY_META: Record<
     type: "active",
     short: "Freeze danger 6s",
   },
+  failsafe: {
+    name: "Failsafe",
+    icon: "shield-check",
+    type: "active",
+    short: "No self-KO 2s",
+  },
 };

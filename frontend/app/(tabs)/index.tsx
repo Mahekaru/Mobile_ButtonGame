@@ -271,7 +271,7 @@ export default function PlayScreen() {
       </ScrollView>
 
       {/* Floating action buttons */}
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 76 }]}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 96 }]}>
         <Pressable
           testID="find-match-btn"
           onPress={findMatch}

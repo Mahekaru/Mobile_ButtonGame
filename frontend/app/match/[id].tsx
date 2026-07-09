@@ -20,7 +20,7 @@ import Animated, {
 
 import { colors, font, radius, space, type, dangerColor, SKIN_COLORS } from "@/src/theme";
 import { ABILITY_META } from "@/src/catalog";
-import { VictoryFX, ButtonFX } from "@/src/fx";
+import { VictoryFX, ButtonFX, PressBurst } from "@/src/fx";
 import { levelForXp, rankName } from "@/src/progression";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/auth";
@@ -38,6 +38,7 @@ export default function MatchScreen() {
   const [armed, setArmed] = useState(false);
   const [pressing, setPressing] = useState(false);
   const [reveal, setReveal] = useState<{ text: string; tone: string } | null>(null);
+  const [burstKey, setBurstKey] = useState(0);
 
   const offsetRef = useRef(0); // clientNowSec - serverNow
   const endedRef = useRef(false);
@@ -116,6 +117,7 @@ export default function MatchScreen() {
   const onPanic = async () => {
     if (!canPress) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    setBurstKey((k) => k + 1); // fire the cosmetic click burst
     scale.value = withTiming(0.88, { duration: 70 }, () => {
       scale.value = withSpring(1, { damping: 8, stiffness: 200 });
     });
@@ -272,8 +274,11 @@ export default function MatchScreen() {
         </Text>
 
         <View style={styles.panicWrap}>
-          {me?.alive && <ButtonFX type={buttonFx} size={280} />}
-          <Animated.View style={[btnStyle, { marginTop: space.lg }]}>
+          {me?.alive && <ButtonFX type={buttonFx} size={208} />}
+          {me?.alive && burstKey > 0 && (
+            <PressBurst key={burstKey} type={buttonFx} color={skinColor} size={208} />
+          )}
+          <Animated.View style={btnStyle}>
             <Pressable testID="panic-button" onPress={onPanic} disabled={!canPress}>
               <View style={[styles.panicOuter, { borderColor: dColor, opacity: canPress ? 1 : 0.5 }]}>
                 <SkinSurface skinId={skinId} color={skinColor} size={188} radius={94}>
@@ -380,7 +385,7 @@ function LobbyView({ state, insets, onCancel, onStart }: any) {
           </View>
         </ScrollView>
       </View>
-      <View style={{ padding: space.xl, paddingBottom: insets.bottom + space.lg }}>
+      <View style={{ padding: space.xl, paddingBottom: insets.bottom + space.xl }}>
         {state.party_code && (
           <Pressable testID="lobby-start-now" onPress={onStart} style={styles.startNowBtn}>
             <MaterialCommunityIcons name="rocket-launch" size={20} color="#fff" />
@@ -590,7 +595,7 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
         </Pressable>
       </ScrollView>
 
-      <View style={[styles.resultFooter, { paddingBottom: insets.bottom + space.lg }]}>
+      <View style={[styles.resultFooter, { paddingBottom: insets.bottom + space.xl }]}>
         {offerDoubleXp && (
           <Pressable
             testID="double-xp-btn"
@@ -715,13 +720,13 @@ const styles = StyleSheet.create({
   feedEmpty: { fontFamily: font.regular, fontSize: type.sm, color: colors.muted },
   feedLine: { fontFamily: font.medium, fontSize: type.sm, marginBottom: 3, color: colors.onSurface2 },
   statsCol: { flex: 1, gap: space.sm },
-  statCard: { alignItems: "center", paddingVertical: space.sm },
+  statCard: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: space.sm },
   statNum: { fontFamily: font.displayBold, fontSize: 34, color: colors.onSurface, lineHeight: 38 },
   statCap: { fontFamily: font.medium, fontSize: 9, color: colors.muted, letterSpacing: 0.5 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   dangerLabel: { fontFamily: font.displaySemi, fontSize: type.lg, color: colors.onSurface3, letterSpacing: 4 },
   dangerNum: { fontFamily: font.displayBold, fontSize: 74, lineHeight: 78 },
-  panicWrap: { alignItems: "center", justifyContent: "center" },
+  panicWrap: { width: 236, height: 236, alignItems: "center", justifyContent: "center" },
   panicOuter: {
     width: 208,
     height: 208,
