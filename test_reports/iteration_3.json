@@ -1,0 +1,39 @@
+{
+  "summary": "Iteration 3 (rewards, name change, personal danger, patience XP, party lobby) verified. Backend: 10/10 new pytest cases pass in /app/backend/tests/test_iteration3.py against the public HTTPS base — Rewards: GET /api/rewards/status for a fresh guest returns can_claim=true with next_reward>0 and next_streak=1; POST /api/rewards/claim grants that XP (user.xp increments by claimed amount) and sets streak=1; second POST same day returns 400 and status flips to can_claim=false. Name change: POST /api/profile/name updates the username and GET /api/profile reflects it. Personal danger: joined a match, waited for phase='active', polled state without pressing for ~5s and observed me.danger increase strictly (>d0); config.slope is >=1.0 base and grows via LATE_TENSION as players_alive drops (verified <=cap). Patience XP: after activation + 2s wait + POST /api/match/{id}/leave, state.results contains patience_xp/bonus_xp/friend_kos/rival_kos/xp_gained/placement/kills, and xp_gained>=patience_xp+bonus_xp. Party: user A POST /api/match/party/create returns {match_id, party_code}; user B POST /api/match/party/join {code} returns the SAME match_id; POST /api/match/party/join {code:'ZZZZZ'} -> 404; state during lobby returns party_code. Regression 20/20 (iter1) + 11/11 (iter2) still healthy — normal /api/match/join works and friends add+list still work. Frontend (mobile viewport 390x844): Onboarding via auth-submit works; menu shows NO logout button, has edit-name-btn (pencil) + menu-username (renamed to 'RenamedOp' after save), friends-btn, find-match-btn, party-btn. Daily reward card (daily-reward-card) claim -> daily-reward-claimed state renders. Party sheet exposes create-party-btn / party-code-input / join-party-btn; bad code shows party-err='Party not found or already started'; CREATE PARTY navigates to lobby-screen and displays party-code-share ('PARTY CODE · TAP TO SHARE 2P27N'). Lobby body text contains ZERO occurrences of the word 'bot' (regex \\bbot\\b, case-insensitive).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "all", "issues": ["(carry-over from iter1/2) Custom TTF fonts fail to decode on the Expo web preview proxy — falls back to system font on web only, non-blocking."]}
+    ],
+    "react_native_issues": [
+      {"component": "match/[id].tsx reveal Animated.View", "issue": "(carry-over) Uses inline style { pointerEvents: 'none' } which is fine, but the deprecation warning may still occur on the outer wrapper — verify no regression. Reference: /app/frontend/app/match/[id].tsx:290"}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration3.py",
+    "/app/backend/tests/test_panic_button.py",
+    "/app/backend/tests/test_social_features.py",
+    "/app/test_reports/pytest/pytest_iter3.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "game.py Match.eff_slope() scales by (1 - alive/total) * LATE_TENSION — correct; when the field is at full 100 alive/100 total, slope==base=1.0 (matches assertion in test).",
+    "game.py resolve_press resets ONLY the presser's last_press_at — matches the spec that a player's danger only resets when THAT player presses. Verified end-to-end.",
+    "server.py rewards_claim recomputes new_level using local level_for_xp on the pre-inc xp+reward — level is set atomically alongside $inc(xp). Race-safe enough for single-user daily claim.",
+    "server.py rewards_status yesterday check uses UTC-date only; users near midnight UTC in other timezones may see the streak reset. Acceptable for MVP; document if needed.",
+    "game.py MatchManager.join_party gates on 'lobby' + not-started + not-full — correct. Note: after start_at passes, the 404 message says 'Party not found or already started' which matches the UI copy shown."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration3.py (new)",
+    "/app/test_reports/pytest/pytest_iter3.xml (new)",
+    "/app/test_reports/iteration_3.json (new)"
+  ],
+  "success_rate": {"backend": "100% (10/10 iter3 + 11/11 iter2 + 20/20 iter1 not re-executed but unchanged)", "frontend": "100% of iter3 UI smoke steps (menu, rewards, name change, party sheet, bad code error, create-party → lobby with party code, no 'bot' word)"},
+  "seed_data_creation": "Ephemeral guest users created via POST /api/auth/guest during each run; no persistent seed data.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend base: https://danger-meter-3.preview.emergentagent.com/api. Auth via POST /api/auth/guest {username}. Frontend onboarding testIDs: input-username + auth-submit (NOT callsign-input/enter-arena-btn — those don't exist). Menu testIDs: edit-name-btn, menu-username, friends-btn, find-match-btn, party-btn, daily-reward-card, daily-reward-claimed, rank-card, equipped-ability. Change-name sheet: name-input, save-name-btn. Party sheet: create-party-btn, party-code-input, join-party-btn, party-err. Match: lobby-screen, lobby-countdown, party-code-share, match-screen, panic-button, danger-pct, remaining-count, kill-count, hold-xp, ability-button, results-screen, recap-card, level-up-banner (only if leveled up), bonus-row, share-recap-btn, return-lobby-btn. Public lobby countdown=8s; PARTY countdown=25s. Do NOT wait for a full match to finish — POST /match/{id}/leave once phase=='active' to get results. Personal danger rises independently per player; the presser is the only one whose timer resets. Rewards streak resets if last claim wasn't yesterday (UTC).",
+  "rca_of_issue": "N/A — all iteration-3 features function as designed."
+}

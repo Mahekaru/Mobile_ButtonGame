@@ -66,6 +66,16 @@ export const api = {
     }),
   me: () => request<{ user: any }>("/auth/me"),
   profile: () => request<{ user: any }>("/profile"),
+  changeName: (username: string) =>
+    request<{ user: any }>("/profile/name", { method: "POST", body: { username } }),
+  rewardsStatus: () =>
+    request<{ can_claim: boolean; current_streak: number; next_streak: number; next_reward: number; next_is_weekly: boolean }>(
+      "/rewards/status",
+    ),
+  claimReward: () =>
+    request<{ claimed: number; streak: number; is_weekly: boolean; user: any }>("/rewards/claim", {
+      method: "POST",
+    }),
   friends: () => request<{ friend_code: string; friends: any[] }>("/friends"),
   addFriend: (code: string) =>
     request<{ added: any }>("/friends/add", { method: "POST", body: { code } }),
@@ -80,6 +90,13 @@ export const api = {
       body: { category, item_id },
     }),
   joinMatch: () => request<{ match_id: string; pid: string }>("/match/join", { method: "POST" }),
+  createParty: () =>
+    request<{ match_id: string; party_code: string; pid: string }>("/match/party/create", { method: "POST" }),
+  joinParty: (code: string) =>
+    request<{ match_id: string; party_code: string; pid: string }>("/match/party/join", {
+      method: "POST",
+      body: { code },
+    }),
   matchState: (id: string) => request<any>(`/match/${id}/state`),
   press: (id: string, use_ability: boolean) =>
     request<{ outcome: any; state: any }>(`/match/${id}/press`, {

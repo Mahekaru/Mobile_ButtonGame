@@ -18,6 +18,7 @@ import Animated, {
 
 import { colors, font, radius, space, type, dangerColor, SKIN_COLORS } from "@/src/theme";
 import { ABILITY_META } from "@/src/catalog";
+import { levelForXp, rankName } from "@/src/progression";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/auth";
 import { GlassCard } from "@/src/ui";
@@ -64,15 +65,15 @@ export default function MatchScreen() {
     return () => clearInterval(iv);
   }, [fetchState]);
 
-  // Client-side danger animation
+  // Client-side personal danger animation (resets only on MY press)
   useEffect(() => {
     const iv = setInterval(() => {
-      if (!state || state.phase !== "active") {
+      if (!state || state.phase !== "active" || !state.me) {
         setLocalDanger(state?.config?.base ?? 5);
         return;
       }
       const nowSec = Date.now() / 1000 - offsetRef.current;
-      const elapsed = nowSec - state.last_press_at;
+      const elapsed = nowSec - state.me.last_press_at;
       const { base, slope, cap } = state.config;
       const d = Math.max(base, Math.min(cap, base + elapsed * slope));
       setLocalDanger(d);
@@ -141,7 +142,7 @@ export default function MatchScreen() {
 
   // ---- Results overlay ----
   if (state?.results) {
-    return <ResultsView results={state.results} skinColor={skinColor} username={user?.username} onExit={leave} />;
+    return <ResultsView results={state.results} skinColor={skinColor} username={user?.username} oldXp={user?.progression?.xp ?? 0} onExit={leave} />;
   }
 
   // ---- Lobby ----
@@ -227,8 +228,13 @@ export default function MatchScreen() {
         </Animated.View>
 
         <Text style={styles.hint}>
-          {me?.alive ? "Someone dies. Maybe you." : "You are spectating…"}
+          {me?.alive
+            ? "The longer you hold, the more XP you bank — but your danger keeps rising."
+            : "You are spectating…"}
         </Text>
+        {me?.alive && (me?.hold_xp ?? 0) > 0 && (
+          <Text style={styles.holdXp} testID="hold-xp">PATIENCE BANKED +{me.hold_xp} XP</Text>
+        )}
       </View>
 
       {/* Bottom: ability */}
@@ -303,7 +309,27 @@ function LobbyView({ state, insets, onCancel }: any) {
         <Text style={styles.lobbyCountdown} testID="lobby-countdown">
           {Math.ceil(state.countdown ?? 0)}
         </Text>
-        <Text style={styles.lobbySub}>Match starts soon · filling with bots</Text>
+        <Text style={styles.lobbySub}>
+          {state.party_code ? "Waiting for your squad…" : "Preparing the arena…"}
+        </Text>
+
+        {state.party_code && (
+          <Pressable
+            testID="party-code-share"
+            onPress={() =>
+              Share.share({
+                message: `Join my PANIC BUTTON party! Code: ${state.party_code} — last one alive wins.`,
+              }).catch(() => {})
+            }
+            style={styles.partyCodeBox}
+          >
+            <View>
+              <Text style={styles.partyCodeLabel}>PARTY CODE · TAP TO SHARE</Text>
+              <Text style={styles.partyCodeValue}>{state.party_code}</Text>
+            </View>
+            <MaterialCommunityIcons name="share-variant" size={22} color={colors.amber} />
+          </Pressable>
+        )}
 
         <View style={styles.lobbyMeter}>
           <View style={[styles.lobbyFill, { width: `${(alive / total) * 100}%` }]} />
@@ -316,11 +342,7 @@ function LobbyView({ state, insets, onCancel }: any) {
           <View style={styles.lobbyGrid}>
             {(state.lobby_players || []).map((p: any, i: number) => (
               <View key={i} style={styles.lobbyChip}>
-                <MaterialCommunityIcons
-                  name={p.is_bot ? "robot" : "account"}
-                  size={14}
-                  color={p.is_bot ? colors.muted : colors.amber}
-                />
+                <MaterialCommunityIcons name="account" size={14} color={colors.amber} />
                 <Text style={styles.lobbyChipText} numberOfLines={1}>{p.name}</Text>
               </View>
             ))}
@@ -345,13 +367,18 @@ function makeTaunt(results: any, username: string): string {
   return `${username} went out at #${p}/100. Think you'd last longer? 👀`;
 }
 
-function ResultsView({ results, skinColor, username, onExit }: any) {
+function ResultsView({ results, skinColor, username, oldXp, onExit }: any) {
   const insets = useSafeAreaInsets();
   const won = results.won;
   const cardRef = useRef<View>(null);
   const [sharing, setSharing] = useState(false);
   const taunt = makeTaunt(results, username || "Someone");
   const koBonus = (results.friend_kos || 0) + (results.rival_kos || 0) > 0;
+
+  const newXp = (oldXp || 0) + (results.xp_gained || 0);
+  const oldLevel = levelForXp(oldXp || 0);
+  const newLevel = levelForXp(newXp);
+  const leveledUp = newLevel > oldLevel;
 
   const share = async () => {
     if (sharing) return;
@@ -417,18 +444,29 @@ function ResultsView({ results, skinColor, username, onExit }: any) {
             </View>
           </View>
 
-          {koBonus && (
-            <View style={styles.bonusRow} testID="ko-bonus">
-              <MaterialCommunityIcons name="target-account" size={16} color={colors.amber} />
+          {(koBonus || results.patience_xp > 0) && (
+            <View style={styles.bonusRow} testID="bonus-row">
+              <MaterialCommunityIcons name="star-four-points" size={16} color={colors.amber} />
               <Text style={styles.bonusText}>
-                {results.friend_kos > 0 && `${results.friend_kos} friend${results.friend_kos > 1 ? "s" : ""} KO'd (+${results.friend_kos * 50}) `}
-                {results.rival_kos > 0 && `${results.rival_kos} rival${results.rival_kos > 1 ? "s" : ""} KO'd (+${results.rival_kos * 25})`}
+                {results.patience_xp > 0 && `Patience +${results.patience_xp} `}
+                {results.friend_kos > 0 && `· ${results.friend_kos} friend KO +${results.friend_kos * 50} `}
+                {results.rival_kos > 0 && `· ${results.rival_kos} rival KO +${results.rival_kos * 25}`}
               </Text>
             </View>
           )}
 
           <Text style={styles.taunt}>&ldquo;{taunt}&rdquo;</Text>
         </View>
+
+        {leveledUp && (
+          <Animated.View entering={FadeInDown.springify().damping(13)} style={styles.levelUp} testID="level-up-banner">
+            <MaterialCommunityIcons name="chevron-double-up" size={28} color={colors.warning} />
+            <View>
+              <Text style={styles.levelUpTitle}>LEVEL UP!</Text>
+              <Text style={styles.levelUpSub}>Level {newLevel} · {rankName(newLevel)}</Text>
+            </View>
+          </Animated.View>
+        )}
 
         {results.self_eliminated && (
           <Text style={styles.selfElim}>You pressed the button on yourself.</Text>
@@ -496,7 +534,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   panicText: { fontFamily: font.displayBold, fontSize: 40, color: "#fff", letterSpacing: 2, marginTop: 4 },
-  hint: { fontFamily: font.regular, fontSize: type.base, color: colors.muted, marginTop: space.xl },
+  hint: { fontFamily: font.regular, fontSize: type.base, color: colors.muted, marginTop: space.xl, textAlign: "center", paddingHorizontal: space.xl },
+  holdXp: { fontFamily: font.displaySemi, fontSize: type.base, color: colors.amber, marginTop: space.sm, letterSpacing: 0.5 },
   bottom: { paddingHorizontal: space.xl },
   abilityBtn: {
     flexDirection: "row",
@@ -525,6 +564,21 @@ const styles = StyleSheet.create({
   lobbyTitle: { fontFamily: font.displaySemi, fontSize: type.xl, color: colors.onSurface3, letterSpacing: 4 },
   lobbyCountdown: { fontFamily: font.displayBold, fontSize: 96, color: colors.red, lineHeight: 100 },
   lobbySub: { fontFamily: font.regular, fontSize: type.base, color: colors.muted, marginBottom: space.xl },
+  partyCodeBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: space.lg,
+    backgroundColor: colors.surface2,
+    borderWidth: 1,
+    borderColor: colors.amber,
+    borderRadius: radius.lg,
+    paddingVertical: space.md,
+    paddingHorizontal: space.xl,
+    marginBottom: space.xl,
+  },
+  partyCodeLabel: { fontFamily: font.medium, fontSize: type.sm, color: colors.muted, letterSpacing: 1 },
+  partyCodeValue: { fontFamily: font.displayBold, fontSize: 40, color: colors.amber, letterSpacing: 4 },
   lobbyMeter: {
     width: "100%",
     height: 10,
@@ -595,6 +649,21 @@ const styles = StyleSheet.create({
     marginTop: space.lg,
   },
   bonusText: { fontFamily: font.semi, fontSize: type.sm, color: colors.amber },
+  levelUp: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.md,
+    alignSelf: "center",
+    backgroundColor: "#2B2200",
+    borderWidth: 1,
+    borderColor: colors.warning,
+    borderRadius: radius.lg,
+    paddingVertical: space.md,
+    paddingHorizontal: space.xl,
+    marginTop: space.lg,
+  },
+  levelUpTitle: { fontFamily: font.displayBold, fontSize: type.xl, color: colors.warning, letterSpacing: 1 },
+  levelUpSub: { fontFamily: font.semi, fontSize: type.base, color: colors.onSurface2 },
   taunt: {
     fontFamily: font.medium,
     fontSize: type.base,

@@ -139,6 +139,10 @@ class FriendAddBody(BaseModel):
     code: str = Field(min_length=4, max_length=8)
 
 
+class ChangeNameBody(BaseModel):
+    username: str = Field(min_length=2, max_length=16)
+
+
 class EquipAbilityBody(BaseModel):
     ability_id: Optional[str] = None
 
@@ -164,6 +168,8 @@ def _new_user_doc(user_id: str, username: str, friend_code: str, email=None, pas
         "friend_code": friend_code,
         "friends": [],
         "rivals": [],
+        "last_daily_claim": None,
+        "daily_streak": 0,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "xp": 0,
         "level": 1,
@@ -212,6 +218,73 @@ async def login(body: LoginBody):
 @api_router.get("/auth/me")
 async def me(user: dict = Depends(get_current_user)):
     return {"user": public_user(user)}
+
+
+@api_router.post("/profile/name")
+async def change_name(body: ChangeNameBody, user: dict = Depends(get_current_user)):
+    await db.users.update_one({"_id": user["_id"]}, {"$set": {"username": body.username.strip()}})
+    updated = await db.users.find_one({"_id": user["_id"]})
+    return {"user": public_user(updated)}
+
+
+# ---------------------------------------------------------------------------
+# Daily / weekly login rewards
+# ---------------------------------------------------------------------------
+def _today_iso() -> str:
+    return datetime.now(timezone.utc).date().isoformat()
+
+
+def _preview_reward(streak: int) -> dict:
+    reward = C.DAILY_XP + min(streak, 7) * C.DAILY_STREAK_BONUS
+    is_weekly = streak % 7 == 0
+    if is_weekly:
+        reward += C.WEEKLY_XP
+    return {"reward": reward, "is_weekly": is_weekly}
+
+
+@api_router.get("/rewards/status")
+async def rewards_status(user: dict = Depends(get_current_user)):
+    last = user.get("last_daily_claim")
+    streak = user.get("daily_streak", 0)
+    today = _today_iso()
+    yesterday = (datetime.now(timezone.utc).date() - timedelta(days=1)).isoformat()
+    can_claim = last != today
+    next_streak = streak + 1 if last == yesterday else 1
+    preview = _preview_reward(next_streak)
+    return {
+        "can_claim": can_claim,
+        "current_streak": streak,
+        "next_streak": next_streak,
+        "next_reward": preview["reward"],
+        "next_is_weekly": preview["is_weekly"],
+    }
+
+
+@api_router.post("/rewards/claim")
+async def rewards_claim(user: dict = Depends(get_current_user)):
+    last = user.get("last_daily_claim")
+    streak = user.get("daily_streak", 0)
+    today = _today_iso()
+    if last == today:
+        raise HTTPException(status_code=400, detail="Already claimed today")
+    yesterday = (datetime.now(timezone.utc).date() - timedelta(days=1)).isoformat()
+    new_streak = streak + 1 if last == yesterday else 1
+    preview = _preview_reward(new_streak)
+    reward = preview["reward"]
+    new_xp = user.get("xp", 0) + reward
+    await db.users.update_one(
+        {"_id": user["_id"]},
+        {"$inc": {"xp": reward},
+         "$set": {"last_daily_claim": today, "daily_streak": new_streak,
+                  "level": C.level_for_xp(new_xp)}},
+    )
+    updated = await db.users.find_one({"_id": user["_id"]})
+    return {
+        "claimed": reward,
+        "streak": new_streak,
+        "is_weekly": preview["is_weekly"],
+        "user": public_user(updated),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -339,6 +412,32 @@ async def match_join(user: dict = Depends(get_current_user)):
         user["_id"], user["username"], user.get("equipped_ability"), icon,
         friends=set(user.get("friends", [])), rivals=set(user.get("rivals", [])),
     )
+    return result
+
+
+@api_router.post("/match/party/create")
+async def party_create(user: dict = Depends(get_current_user)):
+    icon = user.get("equipped_cosmetics", {}).get("icon", "skull")
+    return await manager.create_party(
+        user["_id"], user["username"], user.get("equipped_ability"), icon,
+        friends=set(user.get("friends", [])), rivals=set(user.get("rivals", [])),
+    )
+
+
+class PartyJoinBody(BaseModel):
+    code: str = Field(min_length=4, max_length=8)
+
+
+@api_router.post("/match/party/join")
+async def party_join(body: PartyJoinBody, user: dict = Depends(get_current_user)):
+    icon = user.get("equipped_cosmetics", {}).get("icon", "skull")
+    result = await manager.join_party(
+        body.code.strip().upper(), user["_id"], user["username"],
+        user.get("equipped_ability"), icon,
+        friends=set(user.get("friends", [])), rivals=set(user.get("rivals", [])),
+    )
+    if result.get("error"):
+        raise HTTPException(status_code=404, detail="Party not found or already started")
     return result
 
 

@@ -20,6 +20,9 @@ from config import (
     DEFENSIVE_ABILITIES,
     FRIEND_KO_BONUS,
     GAME_CONFIG,
+    HOLD_XP_CAP,
+    HOLD_XP_PER_SEC,
+    LATE_TENSION,
     PERSONALITY_WEIGHTS,
     RIVAL_KO_BONUS,
     compute_match_xp,
@@ -59,6 +62,9 @@ class Player:
         self.friend_kos = 0
         self.rival_kos = 0
         self.ko_names: List[str] = []     # human names this player eliminated
+        # personal danger + patience reward
+        self.last_press_at = now()        # personal timer (set at activation)
+        self.hold_xp = 0                  # banked patience reward
 
 
 class Match:
@@ -77,6 +83,8 @@ class Match:
         self.lock = asyncio.Lock()
         self._loop_task: Optional[asyncio.Task] = None
         self._persisted_pids: set = set()
+        self.party_code: Optional[str] = None
+        self.is_party = False
 
     # ---- helpers -----------------------------------------------------------
     def alive_players(self) -> List[Player]:
@@ -85,12 +93,23 @@ class Match:
     def alive_count(self) -> int:
         return sum(1 for p in self.players.values() if p.alive)
 
-    def danger_pct(self) -> float:
+    def eff_slope(self) -> float:
+        """Danger climbs faster as the field shrinks (late-game tension)."""
+        total = len(self.players) or 1
+        shrink = 1.0 - (self.alive_count() / total)
+        return GAME_CONFIG["danger_slope"] * (1.0 + LATE_TENSION * shrink)
+
+    def danger_for(self, player: "Player") -> float:
+        """Personal self-death chance %, based on time since THIS player's last press."""
         if self.phase != "active":
             return GAME_CONFIG["danger_base"]
-        elapsed = now() - self.last_press_at
-        val = GAME_CONFIG["danger_base"] + elapsed * GAME_CONFIG["danger_slope"]
+        elapsed = now() - player.last_press_at
+        val = GAME_CONFIG["danger_base"] + elapsed * self.eff_slope()
         return max(GAME_CONFIG["danger_base"], min(GAME_CONFIG["danger_cap"], val))
+
+    def danger_pct(self) -> float:
+        # Lobby/default fallback only; per-player danger is the real driver.
+        return GAME_CONFIG["danger_base"]
 
     def add_human(self, user_id: str, name: str, ability: Optional[str], icon: str,
                   friends: Optional[set] = None, rivals: Optional[set] = None) -> str:
@@ -136,6 +155,10 @@ class Match:
         victim.alive = False
         victim.placement = self.alive_count() + 1  # alive_count now excludes victim
         victim.self_eliminated = self_elim
+        # Reward patience: bank the wait since this player's last press (unless
+        # they pressed their own doom). The longer they held out, the more XP.
+        if not self_elim:
+            victim.hold_xp += int(min(HOLD_XP_CAP, (now() - victim.last_press_at) * HOLD_XP_PER_SEC))
         self._push_feed({
             "type": "elim",
             "victim": victim.name,
@@ -169,7 +192,8 @@ class Match:
         if presser is None or not presser.alive:
             return None
 
-        danger = self.danger_pct()
+        wait_seconds = now() - presser.last_press_at
+        danger = self.danger_for(presser)
         self_chance = (danger / 100.0) * (1.0 - protection_for(presser.kills))
 
         ability_note = None
@@ -186,7 +210,7 @@ class Match:
 
         outcome = {"presser": presser.name, "danger": round(danger, 1),
                    "self_death": False, "victims": [], "ability": ability_note,
-                   "saved": False}
+                   "saved": False, "hold_bonus": 0}
 
         presser_dies = random.random() < self_chance
         if presser_dies and self._try_defensive(presser):
@@ -198,6 +222,10 @@ class Match:
             outcome["self_death"] = True
             outcome["victims"].append(presser.name)
         else:
+            # Bank the patience reward — the longer the hold, the bigger the payout.
+            hold = int(min(HOLD_XP_CAP, wait_seconds * HOLD_XP_PER_SEC))
+            presser.hold_xp += hold
+            outcome["hold_bonus"] = hold
             n = GAME_CONFIG["double_tap_count"] if double_tap else 1
             excluded = {presser.pid}
             for _ in range(n):
@@ -225,8 +253,10 @@ class Match:
                         presser.rival_kos += 1
                         outcome["bonus"] = "rival"
 
-        self.last_press_at = now()
-        self._reroll_bot_thresholds()
+        # Only the PRESSER's personal danger resets.
+        presser.last_press_at = now()
+        if presser.is_bot and presser.alive:
+            presser.threshold = roll_threshold(presser.personality)
         self._check_end()
         return outcome
 
@@ -240,6 +270,7 @@ class Match:
             if alive:
                 winner = alive[0]
                 winner.placement = 1
+                winner.hold_xp += int(min(HOLD_XP_CAP, (now() - winner.last_press_at) * HOLD_XP_PER_SEC))
                 self.winner_pid = winner.pid
                 self._push_feed({"type": "win", "victim": winner.name,
                                  "victim_icon": winner.icon, "killer": None, "self": False})
@@ -254,8 +285,11 @@ class Match:
             if self.phase == "lobby":
                 self._backfill_bots()
                 self.phase = "active"
-                self.last_press_at = now()
-                self._reroll_bot_thresholds()
+                t0 = now()
+                for p in self.players.values():
+                    p.last_press_at = t0          # everyone's personal timer starts now
+                    if p.is_bot:
+                        p.threshold = roll_threshold(p.personality)
 
         while True:
             await asyncio.sleep(GAME_CONFIG["tick_sec"])
@@ -264,12 +298,12 @@ class Match:
             async with self.lock:
                 if self.phase != "active":
                     break
-                danger = self.danger_pct()
+                # A bot presses when ITS OWN personal danger crosses its threshold.
                 ready = [p for p in self.players.values()
-                         if p.is_bot and p.alive and danger >= p.threshold]
+                         if p.is_bot and p.alive and self.danger_for(p) >= p.threshold]
                 if ready:
-                    # eager bots (lowest threshold) act first; small randomness
-                    ready.sort(key=lambda p: p.threshold)
+                    # most-urgent bot (highest personal danger) acts first
+                    ready.sort(key=lambda p: self.danger_for(p) - p.threshold, reverse=True)
                     presser = ready[0] if random.random() < 0.8 else random.choice(ready)
                     self.resolve_press(presser.pid, use_ability=False)
 
@@ -285,26 +319,26 @@ class Match:
         me = self.players.get(pid) if pid else None
         total = len(self.players) if self.phase != "lobby" else GAME_CONFIG["match_size"]
 
+        me_danger = self.danger_for(me) if me else GAME_CONFIG["danger_base"]
         data = {
             "match_id": self.id,
             "phase": self.phase,
             "players_total": total,
             "players_alive": self.alive_count() if self.phase != "lobby" else len(self.players),
-            "humans": sum(1 for p in self.players.values() if not p.is_bot),
-            "danger": round(self.danger_pct(), 1),
-            "last_press_at": self.last_press_at,
+            "danger": round(me_danger, 1),
             "server_now": now(),
             "config": {
                 "base": GAME_CONFIG["danger_base"],
-                "slope": GAME_CONFIG["danger_slope"],
+                "slope": round(self.eff_slope(), 3),
                 "cap": GAME_CONFIG["danger_cap"],
             },
             "feed": self.feed[-14:][::-1],
         }
         if self.phase == "lobby":
             data["countdown"] = max(0, round(self.start_at - now(), 1))
+            data["party_code"] = self.party_code
             data["lobby_players"] = [
-                {"name": p.name, "icon": p.icon, "is_bot": p.is_bot}
+                {"name": p.name, "icon": p.icon}
                 for p in list(self.players.values())[:24]
             ]
         if me:
@@ -318,6 +352,9 @@ class Match:
                 "ability_used": me.ability_used,
                 "placement": me.placement,
                 "self_eliminated": me.self_eliminated,
+                "danger": round(me_danger, 1),
+                "last_press_at": me.last_press_at,
+                "hold_xp": me.hold_xp,
             }
             if self.phase == "ended" or not me.alive:
                 data["results"] = self._results_for(me)
@@ -336,7 +373,8 @@ class Match:
             "friend_kos": me.friend_kos,
             "rival_kos": me.rival_kos,
             "ko_names": me.ko_names[:5],
-            "xp_gained": base_xp + me.bonus_xp,
+            "patience_xp": me.hold_xp,
+            "xp_gained": base_xp + me.bonus_xp + me.hold_xp,
         }
 
 
@@ -345,7 +383,40 @@ class MatchManager:
         self.db = db
         self.matches: Dict[str, Match] = {}
         self.open_lobby_id: Optional[str] = None
+        self.party_index: Dict[str, str] = {}   # party_code -> match_id
         self._lock = asyncio.Lock()
+
+    def _make_party_code(self) -> str:
+        alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        for _ in range(30):
+            code = "".join(random.choice(alphabet) for _ in range(5))
+            if code not in self.party_index:
+                return code
+        return uuid.uuid4().hex[:5].upper()
+
+    async def create_party(self, user_id, name, ability, icon, friends=None, rivals=None) -> dict:
+        async with self._lock:
+            self._prune()
+            mid = uuid.uuid4().hex[:12]
+            lobby = Match(mid, self)
+            lobby.is_party = True
+            lobby.party_code = self._make_party_code()
+            lobby.start_at = now() + GAME_CONFIG["party_countdown_sec"]
+            self.matches[mid] = lobby
+            self.party_index[lobby.party_code] = mid
+            lobby._loop_task = asyncio.create_task(lobby.run_loop())
+            pid = lobby.add_human(user_id, name, ability, icon, friends, rivals)
+            return {"match_id": lobby.id, "party_code": lobby.party_code, "pid": pid}
+
+    async def join_party(self, code, user_id, name, ability, icon, friends=None, rivals=None) -> dict:
+        async with self._lock:
+            mid = self.party_index.get(code)
+            lobby = self.matches.get(mid) if mid else None
+            if (lobby is None or lobby.phase != "lobby" or now() >= lobby.start_at
+                    or len(lobby.players) >= GAME_CONFIG["match_size"]):
+                return {"error": "not_found"}
+            pid = lobby.add_human(user_id, name, ability, icon, friends, rivals)
+            return {"match_id": lobby.id, "party_code": code, "pid": pid}
 
     def _prune(self):
         cutoff = now() - 180
@@ -379,7 +450,8 @@ class MatchManager:
             return
         won = match.winner_pid == p.pid
         placement = p.placement or match.alive_count()
-        xp_gained = compute_match_xp(placement, p.kills, won, len(match.players)) + p.bonus_xp
+        xp_gained = (compute_match_xp(placement, p.kills, won, len(match.players))
+                     + p.bonus_xp + p.hold_xp)
 
         user = await self.db.users.find_one({"_id": p.user_id})
         if not user:

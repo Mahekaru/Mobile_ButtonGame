@@ -10,10 +10,11 @@ import random
 GAME_CONFIG = {
     "match_size": 100,          # total players per match (humans + bots)
     "lobby_countdown_sec": 8,   # time the lobby waits for humans before bots fill
+    "party_countdown_sec": 25,  # longer wait for a private party so friends can join
     "danger_base": 5.0,         # self-death chance % right after a press (0s)
     "danger_slope": 1.0,        # % added per second since last press
     "danger_cap": 90.0,         # max self-death chance %
-    "tick_sec": 0.4,            # server bot-evaluation tick
+    "tick_sec": 0.8,            # server bot-evaluation tick (slower = more tension)
     "double_tap_count": 2,
     "lucky_press_multiplier": 0.75,  # -25% self risk
 }
@@ -222,3 +223,16 @@ def compute_match_xp(placement: int, kills: int, won: bool, match_size: int) -> 
 # Bonus XP for knocking out humans you know (drives the social loop)
 FRIEND_KO_BONUS = 50   # eliminating a friend
 RIVAL_KO_BONUS = 25    # eliminating a human you've matched with before
+
+# Patience / hold reward — the longer you wait before pressing, the bigger the
+# banked reward when you survive the press (lost entirely if you self-destruct).
+HOLD_XP_PER_SEC = 2
+HOLD_XP_CAP = 140
+
+# Late-game tension: danger climbs faster as the field shrinks.
+LATE_TENSION = 2.2
+
+# Daily / weekly login rewards
+DAILY_XP = 100
+DAILY_STREAK_BONUS = 25   # per consecutive day (capped by streak %7)
+WEEKLY_XP = 350           # every 7th consecutive day

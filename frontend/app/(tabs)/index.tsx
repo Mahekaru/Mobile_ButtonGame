@@ -1,15 +1,17 @@
-import React, { useCallback, useState } from "react";
-import { View, StyleSheet, Text, ScrollView, Pressable } from "react-native";
+import React, { useCallback, useRef, useState } from "react";
+import { View, StyleSheet, Text, ScrollView, Pressable, TextInput } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
+import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from "@gorhom/bottom-sheet";
 import * as Haptics from "expo-haptics";
 
 import { colors, font, radius, space, type } from "@/src/theme";
 import { useAuth } from "@/src/auth";
-import { api } from "@/src/api";
+import { api, ApiError } from "@/src/api";
+import { PrimaryButton } from "@/src/ui";
 
 const BG =
   "https://images.unsplash.com/photo-1642369717514-f73f300e7d32?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDZ8MHwxfHNlYXJjaHwyfHxkYXJrJTIwcmVkJTIwYWJzdHJhY3QlMjB0ZW5zaW9uJTIwdGV4dHVyZSUyMGJhY2tncm91bmR8ZW58MHx8fHwxNzgzNTY1OTQyfDA&ixlib=rb-4.1.0&q=85";
@@ -30,17 +32,71 @@ const ABILITY_NAMES: Record<string, string> = {
 export default function PlayScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user, refresh, logout } = useAuth();
+  const { user, refresh, changeName } = useAuth();
   const [searching, setSearching] = useState(false);
+  const [reward, setReward] = useState<any>(null);
+  const [claiming, setClaiming] = useState(false);
+  const [claimed, setClaimed] = useState<{ amount: number; weekly: boolean } | null>(null);
+  const [nameInput, setNameInput] = useState("");
+  const [savingName, setSavingName] = useState(false);
+  const nameSheet = useRef<BottomSheetModal>(null);
+  const partySheet = useRef<BottomSheetModal>(null);
+  const [partyCode, setPartyCode] = useState("");
+  const [partyBusy, setPartyBusy] = useState(false);
+  const [partyErr, setPartyErr] = useState<string | null>(null);
+
+  const loadRewards = useCallback(async () => {
+    try {
+      setReward(await api.rewardsStatus());
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
       refresh();
-    }, [refresh]),
+      loadRewards();
+    }, [refresh, loadRewards]),
   );
 
   const prog = user?.progression || { level: 1, rank: "Rookie", progress: 0, xp: 0 };
   const equippedAbility = user?.equipped_ability;
+
+  const claim = async () => {
+    if (claiming) return;
+    setClaiming(true);
+    try {
+      const res = await api.claimReward();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setClaimed({ amount: res.claimed, weekly: res.is_weekly });
+      await refresh();
+      await loadRewards();
+    } catch {
+      /* ignore */
+    } finally {
+      setClaiming(false);
+    }
+  };
+
+  const openNameSheet = () => {
+    setNameInput(user?.username || "");
+    nameSheet.current?.present();
+  };
+
+  const saveName = async () => {
+    if (nameInput.trim().length < 2) return;
+    setSavingName(true);
+    try {
+      await changeName(nameInput.trim());
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      nameSheet.current?.dismiss();
+    } catch {
+      /* ignore */
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   const findMatch = async () => {
     if (searching) return;
@@ -53,6 +109,38 @@ export default function PlayScreen() {
       setSearching(false);
     } finally {
       setTimeout(() => setSearching(false), 1200);
+    }
+  };
+
+  const createParty = async () => {
+    setPartyBusy(true);
+    setPartyErr(null);
+    try {
+      const { match_id } = await api.createParty();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      partySheet.current?.dismiss();
+      router.push(`/match/${match_id}`);
+    } catch {
+      setPartyErr("Could not create party");
+    } finally {
+      setPartyBusy(false);
+    }
+  };
+
+  const joinParty = async () => {
+    const c = partyCode.trim().toUpperCase();
+    if (c.length < 4) return;
+    setPartyBusy(true);
+    setPartyErr(null);
+    try {
+      const { match_id } = await api.joinParty(c);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      partySheet.current?.dismiss();
+      router.push(`/match/${match_id}`);
+    } catch (e) {
+      setPartyErr(e instanceof ApiError ? e.message : "Party not found");
+    } finally {
+      setPartyBusy(false);
     }
   };
 
@@ -71,12 +159,15 @@ export default function PlayScreen() {
       >
         {/* Header: profile + rank */}
         <View style={styles.header}>
-          <View style={{ flex: 1 }}>
+          <Pressable style={{ flex: 1 }} testID="edit-name-btn" onPress={openNameSheet}>
             <Text style={styles.hello}>OPERATIVE</Text>
-            <Text style={styles.username} numberOfLines={1} testID="menu-username">
-              {user?.username || "Player"}
-            </Text>
-          </View>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+              <Text style={styles.username} numberOfLines={1} testID="menu-username">
+                {user?.username || "Player"}
+              </Text>
+              <MaterialCommunityIcons name="pencil" size={16} color={colors.muted} />
+            </View>
+          </Pressable>
           <Pressable
             testID="friends-btn"
             onPress={() => router.push("/friends")}
@@ -84,10 +175,38 @@ export default function PlayScreen() {
           >
             <MaterialCommunityIcons name="account-group" size={20} color={colors.amber} />
           </Pressable>
-          <Pressable testID="logout-btn" onPress={logout} style={[styles.iconBtn, { marginLeft: space.sm }]}>
-            <MaterialCommunityIcons name="logout" size={20} color={colors.onSurface3} />
-          </Pressable>
         </View>
+
+        {/* Daily reward */}
+        {reward?.can_claim && !claimed && (
+          <Pressable style={styles.rewardCard} testID="daily-reward-card" onPress={claim} disabled={claiming}>
+            <View style={styles.rewardIcon}>
+              <MaterialCommunityIcons name="gift" size={24} color={colors.surface} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rewardTitle}>
+                {reward.next_is_weekly ? "WEEKLY BONUS READY" : "DAILY REWARD READY"}
+              </Text>
+              <Text style={styles.rewardSub}>
+                +{reward.next_reward} XP · Day {reward.next_streak} streak
+              </Text>
+            </View>
+            <Text style={styles.rewardCta}>{claiming ? "…" : "CLAIM"}</Text>
+          </Pressable>
+        )}
+        {claimed && (
+          <View style={[styles.rewardCard, { borderColor: colors.success }]} testID="daily-reward-claimed">
+            <View style={[styles.rewardIcon, { backgroundColor: colors.success }]}>
+              <MaterialCommunityIcons name="check-bold" size={22} color={colors.surface} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.rewardTitle, { color: colors.success }]}>
+                +{claimed.amount} XP CLAIMED{claimed.weekly ? " · WEEKLY!" : ""}
+              </Text>
+              <Text style={styles.rewardSub}>Come back tomorrow to keep your streak.</Text>
+            </View>
+          </View>
+        )}
 
         {/* Rank card */}
         <Pressable style={styles.rankCard} testID="rank-card" onPress={() => router.push("/(tabs)/rank")}>
@@ -137,8 +256,20 @@ export default function PlayScreen() {
         </Pressable>
       </ScrollView>
 
-      {/* Floating Find Match button */}
+      {/* Floating action buttons */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + 76 }]}>
+        <Pressable
+          testID="party-btn"
+          onPress={() => {
+            setPartyErr(null);
+            setPartyCode("");
+            partySheet.current?.present();
+          }}
+          style={styles.partyBtn}
+        >
+          <MaterialCommunityIcons name="account-multiple-plus" size={20} color={colors.amber} />
+          <Text style={styles.partyText}>PLAY WITH FRIENDS</Text>
+        </Pressable>
         <Pressable
           testID="find-match-btn"
           onPress={findMatch}
@@ -156,6 +287,80 @@ export default function PlayScreen() {
           <Text style={styles.findText}>{searching ? "SEARCHING FOR TARGETS…" : "FIND MATCH"}</Text>
         </Pressable>
       </View>
+
+      {/* Change-name bottom sheet */}
+      <BottomSheetModal
+        ref={nameSheet}
+        snapPoints={["40%"]}
+        backgroundStyle={{ backgroundColor: colors.surface2 }}
+        handleIndicatorStyle={{ backgroundColor: colors.muted }}
+        backdropComponent={(props) => (
+          <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />
+        )}
+      >
+        <BottomSheetView style={{ padding: space.xl, paddingBottom: insets.bottom + space.xl }}>
+          <Text style={styles.sheetTitle}>CHANGE CALLSIGN</Text>
+          <TextInput
+            testID="name-input"
+            value={nameInput}
+            onChangeText={setNameInput}
+            autoCapitalize="none"
+            maxLength={16}
+            placeholder="New callsign"
+            placeholderTextColor={colors.muted}
+            style={styles.nameInput}
+          />
+          <PrimaryButton
+            testID="save-name-btn"
+            label="SAVE"
+            onPress={saveName}
+            loading={savingName}
+            style={{ marginTop: space.lg }}
+          />
+        </BottomSheetView>
+      </BottomSheetModal>
+
+      {/* Party bottom sheet */}
+      <BottomSheetModal
+        ref={partySheet}
+        snapPoints={["52%"]}
+        backgroundStyle={{ backgroundColor: colors.surface2 }}
+        handleIndicatorStyle={{ backgroundColor: colors.muted }}
+        backdropComponent={(props) => (
+          <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} />
+        )}
+      >
+        <BottomSheetView style={{ padding: space.xl, paddingBottom: insets.bottom + space.xl }}>
+          <Text style={styles.sheetTitle}>PLAY WITH FRIENDS</Text>
+          <Text style={styles.partySheetHint}>Create a party and share the code — everyone lands in the SAME match. KO a friend for +50 XP.</Text>
+          <PrimaryButton
+            testID="create-party-btn"
+            label="CREATE PARTY"
+            onPress={createParty}
+            loading={partyBusy}
+            color={colors.amber}
+            textColor={colors.surface}
+            style={{ marginTop: space.lg }}
+          />
+          <Text style={styles.partyOr}>OR JOIN WITH A CODE</Text>
+          <View style={{ flexDirection: "row", gap: space.md }}>
+            <TextInput
+              testID="party-code-input"
+              value={partyCode}
+              onChangeText={setPartyCode}
+              autoCapitalize="characters"
+              maxLength={8}
+              placeholder="PARTY CODE"
+              placeholderTextColor={colors.muted}
+              style={[styles.nameInput, { flex: 1, letterSpacing: 3 }]}
+            />
+            <Pressable testID="join-party-btn" onPress={joinParty} disabled={partyBusy} style={styles.joinPartyBtn}>
+              <MaterialCommunityIcons name="arrow-right" size={24} color="#fff" />
+            </Pressable>
+          </View>
+          {partyErr && <Text style={styles.partyErr} testID="party-err">{partyErr}</Text>}
+        </BottomSheetView>
+      </BottomSheetModal>
     </View>
   );
 }
@@ -180,6 +385,65 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  rewardCard: {
+    marginHorizontal: space.xl,
+    marginBottom: space.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.md,
+    backgroundColor: colors.surface2,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.amber,
+    padding: space.md,
+  },
+  rewardIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    backgroundColor: colors.amber,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rewardTitle: { fontFamily: font.displaySemi, fontSize: type.lg, color: colors.amber, letterSpacing: 0.5 },
+  rewardSub: { fontFamily: font.regular, fontSize: type.sm, color: colors.onSurface3, marginTop: 1 },
+  rewardCta: { fontFamily: font.displayBold, fontSize: type.xl, color: colors.amber, letterSpacing: 1 },
+  sheetTitle: { fontFamily: font.displaySemi, fontSize: type.xl, color: colors.onSurface, letterSpacing: 1, marginBottom: space.md },
+  nameInput: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: space.lg,
+    height: 54,
+    color: colors.onSurface,
+    fontFamily: font.semi,
+    fontSize: type.xl,
+  },
+  partyBtn: {
+    height: 52,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surface2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: space.sm,
+    marginBottom: space.md,
+  },
+  partyText: { fontFamily: font.displaySemi, fontSize: type.lg, color: colors.amber, letterSpacing: 1 },
+  partySheetHint: { fontFamily: font.regular, fontSize: type.base, color: colors.onSurface3, lineHeight: 20 },
+  partyOr: { fontFamily: font.semi, fontSize: type.sm, color: colors.muted, letterSpacing: 1, marginTop: space.xl, marginBottom: space.md },
+  joinPartyBtn: {
+    width: 54,
+    height: 54,
+    borderRadius: radius.md,
+    backgroundColor: colors.red,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  partyErr: { fontFamily: font.medium, fontSize: type.base, color: colors.red, marginTop: space.md },
   rankCard: {
     marginHorizontal: space.xl,
     backgroundColor: colors.surface2,

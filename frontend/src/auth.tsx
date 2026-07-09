@@ -8,6 +8,7 @@ type AuthState = {
   user: User | null;
   loading: boolean;
   enterAsGuest: (username: string) => Promise<void>;
+  changeName: (username: string) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -42,6 +43,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(user);
   }, []);
 
+  const changeName = useCallback(async (username: string) => {
+    const { user } = await api.changeName(username);
+    setUser(user);
+  }, []);
+
   const logout = useCallback(async () => {
     await clearToken();
     setUser(null);
@@ -57,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, enterAsGuest, logout, refresh }}>
+    <AuthContext.Provider value={{ user, loading, enterAsGuest, changeName, logout, refresh }}>
       {children}
     </AuthContext.Provider>
   );
