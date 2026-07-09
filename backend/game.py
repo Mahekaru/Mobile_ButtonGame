@@ -18,8 +18,10 @@ from typing import Dict, List, Optional
 from config import (
     ABILITY_BY_ID,
     DEFENSIVE_ABILITIES,
+    FRIEND_KO_BONUS,
     GAME_CONFIG,
     PERSONALITY_WEIGHTS,
+    RIVAL_KO_BONUS,
     compute_match_xp,
     level_for_xp,
     make_bot_name,
@@ -35,7 +37,8 @@ def now() -> float:
 class Player:
     def __init__(self, pid: str, name: str, is_bot: bool,
                  user_id: Optional[str] = None, personality: Optional[str] = None,
-                 ability: Optional[str] = None, icon: str = "skull"):
+                 ability: Optional[str] = None, icon: str = "skull",
+                 friends: Optional[set] = None, rivals: Optional[set] = None):
         self.pid = pid
         self.name = name
         self.is_bot = is_bot
@@ -49,6 +52,13 @@ class Player:
         self.placement: Optional[int] = None
         self.self_eliminated = False
         self.threshold = roll_threshold(personality) if personality else 0.0
+        # social loop
+        self.friends: set = friends or set()
+        self.rivals: set = rivals or set()
+        self.bonus_xp = 0
+        self.friend_kos = 0
+        self.rival_kos = 0
+        self.ko_names: List[str] = []     # human names this player eliminated
 
 
 class Match:
@@ -82,12 +92,14 @@ class Match:
         val = GAME_CONFIG["danger_base"] + elapsed * GAME_CONFIG["danger_slope"]
         return max(GAME_CONFIG["danger_base"], min(GAME_CONFIG["danger_cap"], val))
 
-    def add_human(self, user_id: str, name: str, ability: Optional[str], icon: str) -> str:
+    def add_human(self, user_id: str, name: str, ability: Optional[str], icon: str,
+                  friends: Optional[set] = None, rivals: Optional[set] = None) -> str:
         pid = f"u_{user_id}"
         if pid in self.players:
             return pid
         self.players[pid] = Player(pid, name, is_bot=False, user_id=user_id,
-                                   ability=ability, icon=icon)
+                                   ability=ability, icon=icon,
+                                   friends=friends, rivals=rivals)
         self.user_index[user_id] = pid
         return pid
 
@@ -201,6 +213,17 @@ class Match:
                 presser.kills += 1
                 excluded.add(victim.pid)
                 outcome["victims"].append(victim.name)
+                # Social bonus: knocking out humans you know is worth more.
+                if not victim.is_bot and victim.user_id:
+                    presser.ko_names.append(victim.name)
+                    if victim.user_id in presser.friends:
+                        presser.bonus_xp += FRIEND_KO_BONUS
+                        presser.friend_kos += 1
+                        outcome["bonus"] = "friend"
+                    elif victim.user_id in presser.rivals:
+                        presser.bonus_xp += RIVAL_KO_BONUS
+                        presser.rival_kos += 1
+                        outcome["bonus"] = "rival"
 
         self.last_press_at = now()
         self._reroll_bot_thresholds()
@@ -303,13 +326,17 @@ class Match:
     def _results_for(self, me: Player) -> dict:
         won = self.winner_pid == me.pid
         placement = me.placement or self.alive_count()
-        xp_gained = compute_match_xp(placement, me.kills, won, len(self.players))
+        base_xp = compute_match_xp(placement, me.kills, won, len(self.players))
         return {
             "won": won,
             "placement": placement,
             "kills": me.kills,
             "self_eliminated": me.self_eliminated,
-            "xp_gained": xp_gained,
+            "bonus_xp": me.bonus_xp,
+            "friend_kos": me.friend_kos,
+            "rival_kos": me.rival_kos,
+            "ko_names": me.ko_names[:5],
+            "xp_gained": base_xp + me.bonus_xp,
         }
 
 
@@ -327,7 +354,8 @@ class MatchManager:
             if m.phase == "ended" and m.ended_at and m.ended_at < cutoff:
                 del self.matches[mid]
 
-    async def join(self, user_id: str, name: str, ability: Optional[str], icon: str) -> dict:
+    async def join(self, user_id: str, name: str, ability: Optional[str], icon: str,
+                   friends: Optional[set] = None, rivals: Optional[set] = None) -> dict:
         async with self._lock:
             self._prune()
             lobby = self.matches.get(self.open_lobby_id) if self.open_lobby_id else None
@@ -340,7 +368,7 @@ class MatchManager:
                 self.matches[mid] = lobby
                 self.open_lobby_id = mid
                 lobby._loop_task = asyncio.create_task(lobby.run_loop())
-            pid = lobby.add_human(user_id, name, ability, icon)
+            pid = lobby.add_human(user_id, name, ability, icon, friends, rivals)
             return {"match_id": lobby.id, "pid": pid}
 
     def get(self, match_id: str) -> Optional[Match]:
@@ -351,7 +379,7 @@ class MatchManager:
             return
         won = match.winner_pid == p.pid
         placement = p.placement or match.alive_count()
-        xp_gained = compute_match_xp(placement, p.kills, won, len(match.players))
+        xp_gained = compute_match_xp(placement, p.kills, won, len(match.players)) + p.bonus_xp
 
         user = await self.db.users.find_one({"_id": p.user_id})
         if not user:
@@ -370,4 +398,9 @@ class MatchManager:
             "$max": {"highest_streak": p.kills},
             "$set": {"level": new_level},
         }
+        # Remember the other humans from this match as future "rivals".
+        others = [q.user_id for q in match.players.values()
+                  if not q.is_bot and q.user_id and q.user_id != p.user_id]
+        if others:
+            update["$addToSet"] = {"rivals": {"$each": others}}
         await self.db.users.update_one({"_id": p.user_id}, update)

@@ -217,3 +217,8 @@ def compute_match_xp(placement: int, kills: int, won: bool, match_size: int) -> 
     if won:
         xp += 250
     return xp
+
+
+# Bonus XP for knocking out humans you know (drives the social loop)
+FRIEND_KO_BONUS = 50   # eliminating a friend
+RIVAL_KO_BONUS = 25    # eliminating a human you've matched with before

@@ -77,7 +77,14 @@ export default function PlayScreen() {
               {user?.username || "Player"}
             </Text>
           </View>
-          <Pressable testID="logout-btn" onPress={logout} style={styles.iconBtn}>
+          <Pressable
+            testID="friends-btn"
+            onPress={() => router.push("/friends")}
+            style={styles.iconBtn}
+          >
+            <MaterialCommunityIcons name="account-group" size={20} color={colors.amber} />
+          </Pressable>
+          <Pressable testID="logout-btn" onPress={logout} style={[styles.iconBtn, { marginLeft: space.sm }]}>
             <MaterialCommunityIcons name="logout" size={20} color={colors.onSurface3} />
           </Pressable>
         </View>

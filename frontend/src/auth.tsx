@@ -7,8 +7,7 @@ type User = any;
 type AuthState = {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, username: string, password: string) => Promise<void>;
+  enterAsGuest: (username: string) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -37,14 +36,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     bootstrap();
   }, [bootstrap]);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const { token, user } = await api.login(email, password);
-    await setToken(token);
-    setUser(user);
-  }, []);
-
-  const register = useCallback(async (email: string, username: string, password: string) => {
-    const { token, user } = await api.register(email, username, password);
+  const enterAsGuest = useCallback(async (username: string) => {
+    const { token, user } = await api.guest(username);
     await setToken(token);
     setUser(user);
   }, []);
@@ -64,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, refresh }}>
+    <AuthContext.Provider value={{ user, loading, enterAsGuest, logout, refresh }}>
       {children}
     </AuthContext.Provider>
   );

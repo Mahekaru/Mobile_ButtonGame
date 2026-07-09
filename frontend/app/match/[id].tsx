@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { View, StyleSheet, Text, Pressable, ScrollView } from "react-native";
+import { View, StyleSheet, Text, Pressable, ScrollView, Share, Platform } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
+import * as Sharing from "expo-sharing";
+import { captureRef } from "react-native-view-shot";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -139,7 +141,7 @@ export default function MatchScreen() {
 
   // ---- Results overlay ----
   if (state?.results) {
-    return <ResultsView results={state.results} skinColor={skinColor} onExit={leave} />;
+    return <ResultsView results={state.results} skinColor={skinColor} username={user?.username} onExit={leave} />;
   }
 
   // ---- Lobby ----
@@ -307,7 +309,7 @@ function LobbyView({ state, insets, onCancel }: any) {
           <View style={[styles.lobbyFill, { width: `${(alive / total) * 100}%` }]} />
         </View>
         <Text style={styles.lobbyCount}>
-          {alive} / {total} operatives · {state.humans} human
+          {alive} / {total} operatives
         </Text>
 
         <ScrollView style={{ marginTop: space.xl, width: "100%" }} showsVerticalScrollIndicator={false}>
@@ -334,44 +336,110 @@ function LobbyView({ state, insets, onCancel }: any) {
   );
 }
 
-function ResultsView({ results, skinColor, onExit }: any) {
+function makeTaunt(results: any, username: string): string {
+  const p = results.placement;
+  if (results.won) return `${username} was the LAST ONE ALIVE. 99 pressed. One survived. 💀`;
+  if (results.self_eliminated) return `${username} panicked and pressed their OWN doom at #${p}/100. 🤡`;
+  if (p <= 10) return `${username} clawed to #${p}/100 before the button blinked. 🔥`;
+  if (results.kills >= 3) return `${username} dropped ${results.kills} operatives before falling at #${p}/100. Revenge? 😏`;
+  return `${username} went out at #${p}/100. Think you'd last longer? 👀`;
+}
+
+function ResultsView({ results, skinColor, username, onExit }: any) {
   const insets = useSafeAreaInsets();
   const won = results.won;
+  const cardRef = useRef<View>(null);
+  const [sharing, setSharing] = useState(false);
+  const taunt = makeTaunt(results, username || "Someone");
+  const koBonus = (results.friend_kos || 0) + (results.rival_kos || 0) > 0;
+
+  const share = async () => {
+    if (sharing) return;
+    setSharing(true);
+    Haptics.selectionAsync();
+    const message = `${taunt}\n\n🔴 PANIC BUTTON — 100 enter, one survives. Can you beat me?`;
+    try {
+      if (Platform.OS !== "web" && cardRef.current && (await Sharing.isAvailableAsync())) {
+        const uri = await captureRef(cardRef, { format: "png", quality: 0.95 });
+        await Sharing.shareAsync(uri, { dialogTitle: "Share your match recap" });
+      } else {
+        await Share.share({ message });
+      }
+    } catch {
+      try {
+        await Share.share({ message });
+      } catch {
+        /* dismissed */
+      }
+    } finally {
+      setSharing(false);
+    }
+  };
+
   return (
     <Animated.View entering={FadeIn.duration(300)} style={styles.root} testID="results-screen">
       <LinearGradient
         colors={won ? ["#3D2E00", "#1A1300", colors.surface] : ["#2A0705", "#160303", colors.surface]}
         style={StyleSheet.absoluteFill}
       />
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: space.xl }}>
-        <MaterialCommunityIcons
-          name={won ? "trophy" : "skull"}
-          size={72}
-          color={won ? colors.warning : colors.red}
-        />
-        <Text style={[styles.resultTitle, { color: won ? colors.warning : colors.red }]}>
-          {won ? "LAST ALIVE" : "ELIMINATED"}
-        </Text>
-        <Text style={styles.resultPlace} testID="result-placement">
-          {won ? "1st of 100" : `#${results.placement} of 100`}
-        </Text>
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: space.xl, paddingTop: insets.top + space.xl }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Shareable recap card */}
+        <View ref={cardRef} collapsable={false} style={styles.recapCard} testID="recap-card">
+          <View style={styles.recapHead}>
+            <MaterialCommunityIcons name="alert-octagon" size={18} color={colors.red} />
+            <Text style={styles.recapBrand}>PANIC BUTTON</Text>
+          </View>
+          <MaterialCommunityIcons
+            name={won ? "trophy" : "skull"}
+            size={64}
+            color={won ? colors.warning : colors.red}
+          />
+          <Text style={[styles.resultTitle, { color: won ? colors.warning : colors.red }]}>
+            {won ? "LAST ALIVE" : "ELIMINATED"}
+          </Text>
+          <Text style={styles.recapUser}>{username}</Text>
+          <Text style={styles.resultPlace} testID="result-placement">
+            {won ? "1st of 100" : `#${results.placement} of 100`}
+          </Text>
 
-        <View style={styles.resultStats}>
-          <View style={styles.resultStat}>
-            <Text style={styles.resultStatNum}>{results.kills}</Text>
-            <Text style={styles.resultStatCap}>ELIMINATIONS</Text>
+          <View style={styles.resultStats}>
+            <View style={styles.resultStat}>
+              <Text style={styles.resultStatNum}>{results.kills}</Text>
+              <Text style={styles.resultStatCap}>ELIMINATIONS</Text>
+            </View>
+            <View style={styles.resultDivider} />
+            <View style={styles.resultStat}>
+              <Text style={[styles.resultStatNum, { color: colors.amber }]}>+{results.xp_gained}</Text>
+              <Text style={styles.resultStatCap}>XP EARNED</Text>
+            </View>
           </View>
-          <View style={styles.resultDivider} />
-          <View style={styles.resultStat}>
-            <Text style={[styles.resultStatNum, { color: colors.amber }]}>+{results.xp_gained}</Text>
-            <Text style={styles.resultStatCap}>XP EARNED</Text>
-          </View>
+
+          {koBonus && (
+            <View style={styles.bonusRow} testID="ko-bonus">
+              <MaterialCommunityIcons name="target-account" size={16} color={colors.amber} />
+              <Text style={styles.bonusText}>
+                {results.friend_kos > 0 && `${results.friend_kos} friend${results.friend_kos > 1 ? "s" : ""} KO'd (+${results.friend_kos * 50}) `}
+                {results.rival_kos > 0 && `${results.rival_kos} rival${results.rival_kos > 1 ? "s" : ""} KO'd (+${results.rival_kos * 25})`}
+              </Text>
+            </View>
+          )}
+
+          <Text style={styles.taunt}>&ldquo;{taunt}&rdquo;</Text>
         </View>
 
         {results.self_eliminated && (
           <Text style={styles.selfElim}>You pressed the button on yourself.</Text>
         )}
-      </View>
+
+        <Pressable testID="share-recap-btn" onPress={share} style={styles.shareBtn}>
+          <MaterialCommunityIcons name="share-variant" size={20} color="#fff" />
+          <Text style={styles.shareText}>{sharing ? "SHARING…" : "SHARE RECAP"}</Text>
+        </Pressable>
+      </ScrollView>
+
       <View style={{ padding: space.xl, paddingBottom: insets.bottom + space.lg }}>
         <Pressable testID="return-lobby-btn" onPress={onExit} style={styles.returnBtn}>
           <Text style={styles.returnText}>RETURN TO LOBBY</Text>
@@ -488,7 +556,18 @@ const styles = StyleSheet.create({
   },
   cancelText: { fontFamily: font.semi, fontSize: type.lg, color: colors.onSurface3, letterSpacing: 1 },
   // results
-  resultTitle: { fontFamily: font.displayBold, fontSize: 56, letterSpacing: 2, marginTop: space.md },
+  recapCard: {
+    backgroundColor: "rgba(20,20,26,0.85)",
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    padding: space.xl,
+    alignItems: "center",
+  },
+  recapHead: { flexDirection: "row", alignItems: "center", gap: space.xs, marginBottom: space.md },
+  recapBrand: { fontFamily: font.displayBold, fontSize: type.base, color: colors.onSurface3, letterSpacing: 2 },
+  recapUser: { fontFamily: font.semi, fontSize: type.lg, color: colors.onSurface2, marginTop: 2 },
+  resultTitle: { fontFamily: font.displayBold, fontSize: 52, letterSpacing: 2, marginTop: space.sm },
   resultPlace: { fontFamily: font.displaySemi, fontSize: type["2xl"], color: colors.onSurface, marginTop: space.xs },
   resultStats: {
     flexDirection: "row",
@@ -505,7 +584,40 @@ const styles = StyleSheet.create({
   resultStatNum: { fontFamily: font.displayBold, fontSize: 40, color: colors.onSurface },
   resultStatCap: { fontFamily: font.medium, fontSize: type.sm, color: colors.muted, letterSpacing: 0.5 },
   resultDivider: { width: 1, height: 44, backgroundColor: colors.border, marginHorizontal: space.lg },
-  selfElim: { fontFamily: font.regular, fontSize: type.base, color: colors.red, marginTop: space.xl },
+  bonusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.xs,
+    backgroundColor: "#3A2A00",
+    borderRadius: radius.md,
+    paddingVertical: space.sm,
+    paddingHorizontal: space.md,
+    marginTop: space.lg,
+  },
+  bonusText: { fontFamily: font.semi, fontSize: type.sm, color: colors.amber },
+  taunt: {
+    fontFamily: font.medium,
+    fontSize: type.base,
+    color: colors.onSurface3,
+    textAlign: "center",
+    marginTop: space.lg,
+    fontStyle: "italic",
+    lineHeight: 20,
+  },
+  selfElim: { fontFamily: font.regular, fontSize: type.base, color: colors.red, marginTop: space.lg, textAlign: "center" },
+  shareBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: space.sm,
+    height: 52,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface3,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    marginTop: space.xl,
+  },
+  shareText: { fontFamily: font.displaySemi, fontSize: type.lg, color: "#fff", letterSpacing: 1 },
   returnBtn: {
     height: 56,
     borderRadius: radius.md,

@@ -1,5 +1,7 @@
 import logging
 import os
+import random
+import string
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -71,6 +73,18 @@ async def get_current_user(creds: HTTPAuthorizationCredentials = Depends(securit
     return user
 
 
+FRIEND_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no ambiguous chars
+
+
+async def generate_friend_code() -> str:
+    for _ in range(30):
+        code = "".join(random.choice(FRIEND_CODE_ALPHABET) for _ in range(6))
+        exists = await db.users.find_one({"friend_code": code})
+        if not exists:
+            return code
+    return uuid.uuid4().hex[:6].upper()
+
+
 # ---------------------------------------------------------------------------
 # Serialization
 # ---------------------------------------------------------------------------
@@ -83,8 +97,10 @@ def public_user(user: dict) -> dict:
     placement_sum = user.get("placement_sum", 0)
     return {
         "id": user["_id"],
-        "email": user["email"],
+        "email": user.get("email"),
         "username": user["username"],
+        "friend_code": user.get("friend_code"),
+        "friends_count": len(user.get("friends", [])),
         "equipped_ability": user.get("equipped_ability"),
         "equipped_cosmetics": user.get("equipped_cosmetics", dict(C.DEFAULT_COSMETICS)),
         "progression": prog,
@@ -115,6 +131,14 @@ class LoginBody(BaseModel):
     password: str
 
 
+class GuestBody(BaseModel):
+    username: str = Field(min_length=2, max_length=16)
+
+
+class FriendAddBody(BaseModel):
+    code: str = Field(min_length=4, max_length=8)
+
+
 class EquipAbilityBody(BaseModel):
     ability_id: Optional[str] = None
 
@@ -131,17 +155,15 @@ class PressBody(BaseModel):
 # ---------------------------------------------------------------------------
 # Auth routes
 # ---------------------------------------------------------------------------
-@api_router.post("/auth/register")
-async def register(body: RegisterBody):
-    existing = await db.users.find_one({"email": body.email.lower()})
-    if existing:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    user_id = str(uuid.uuid4())
-    doc = {
+def _new_user_doc(user_id: str, username: str, friend_code: str, email=None, password_hash=None) -> dict:
+    return {
         "_id": user_id,
-        "email": body.email.lower(),
-        "username": body.username,
-        "password_hash": hash_password(body.password),
+        "email": email,
+        "username": username,
+        "password_hash": password_hash,
+        "friend_code": friend_code,
+        "friends": [],
+        "rivals": [],
         "created_at": datetime.now(timezone.utc).isoformat(),
         "xp": 0,
         "level": 1,
@@ -154,6 +176,27 @@ async def register(body: RegisterBody):
         "equipped_ability": None,
         "equipped_cosmetics": dict(C.DEFAULT_COSMETICS),
     }
+
+
+@api_router.post("/auth/guest")
+async def guest(body: GuestBody):
+    """Name-only onboarding — creates a device-bound account with a friend code."""
+    user_id = str(uuid.uuid4())
+    code = await generate_friend_code()
+    doc = _new_user_doc(user_id, body.username.strip(), code)
+    await db.users.insert_one(doc)
+    return {"token": create_token(user_id), "user": public_user(doc)}
+
+
+@api_router.post("/auth/register")
+async def register(body: RegisterBody):
+    existing = await db.users.find_one({"email": body.email.lower()})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    user_id = str(uuid.uuid4())
+    code = await generate_friend_code()
+    doc = _new_user_doc(user_id, body.username, code,
+                        email=body.email.lower(), password_hash=hash_password(body.password))
     await db.users.insert_one(doc)
     return {"token": create_token(user_id), "user": public_user(doc)}
 
@@ -161,7 +204,7 @@ async def register(body: RegisterBody):
 @api_router.post("/auth/login")
 async def login(body: LoginBody):
     user = await db.users.find_one({"email": body.email.lower()})
-    if not user or not verify_password(body.password, user["password_hash"]):
+    if not user or not verify_password(body.password, user.get("password_hash") or ""):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     return {"token": create_token(user["_id"]), "user": public_user(user)}
 
@@ -169,6 +212,46 @@ async def login(body: LoginBody):
 @api_router.get("/auth/me")
 async def me(user: dict = Depends(get_current_user)):
     return {"user": public_user(user)}
+
+
+# ---------------------------------------------------------------------------
+# Friends routes
+# ---------------------------------------------------------------------------
+def _friend_summary(u: dict) -> dict:
+    prog = C.progression_snapshot(u.get("xp", 0))
+    return {
+        "id": u["_id"],
+        "username": u["username"],
+        "friend_code": u.get("friend_code"),
+        "rank": prog["rank"],
+        "level": prog["level"],
+    }
+
+
+@api_router.get("/friends")
+async def get_friends(user: dict = Depends(get_current_user)):
+    ids = user.get("friends", [])
+    friends = []
+    if ids:
+        cursor = db.users.find({"_id": {"$in": ids}})
+        friends = [_friend_summary(f) async for f in cursor]
+    return {"friend_code": user.get("friend_code"), "friends": friends}
+
+
+@api_router.post("/friends/add")
+async def add_friend(body: FriendAddBody, user: dict = Depends(get_current_user)):
+    code = body.code.strip().upper()
+    if code == user.get("friend_code"):
+        raise HTTPException(status_code=400, detail="That's your own code")
+    target = await db.users.find_one({"friend_code": code})
+    if not target:
+        raise HTTPException(status_code=404, detail="No operative with that code")
+    if target["_id"] in user.get("friends", []):
+        raise HTTPException(status_code=400, detail="Already friends")
+    # mutual add
+    await db.users.update_one({"_id": user["_id"]}, {"$addToSet": {"friends": target["_id"]}})
+    await db.users.update_one({"_id": target["_id"]}, {"$addToSet": {"friends": user["_id"]}})
+    return {"added": _friend_summary(target)}
 
 
 # ---------------------------------------------------------------------------
@@ -252,8 +335,10 @@ async def equip_cosmetic(body: EquipCosmeticBody, user: dict = Depends(get_curre
 @api_router.post("/match/join")
 async def match_join(user: dict = Depends(get_current_user)):
     icon = user.get("equipped_cosmetics", {}).get("icon", "skull")
-    result = await manager.join(user["_id"], user["username"],
-                                user.get("equipped_ability"), icon)
+    result = await manager.join(
+        user["_id"], user["username"], user.get("equipped_ability"), icon,
+        friends=set(user.get("friends", [])), rivals=set(user.get("rivals", [])),
+    )
     return result
 
 

@@ -46,6 +46,12 @@ async function request<T>(
 }
 
 export const api = {
+  guest: (username: string) =>
+    request<{ token: string; user: any }>("/auth/guest", {
+      method: "POST",
+      body: { username },
+      auth: false,
+    }),
   register: (email: string, username: string, password: string) =>
     request<{ token: string; user: any }>("/auth/register", {
       method: "POST",
@@ -60,6 +66,9 @@ export const api = {
     }),
   me: () => request<{ user: any }>("/auth/me"),
   profile: () => request<{ user: any }>("/profile"),
+  friends: () => request<{ friend_code: string; friends: any[] }>("/friends"),
+  addFriend: (code: string) =>
+    request<{ added: any }>("/friends/add", { method: "POST", body: { code } }),
   stats: () => request<any>("/stats"),
   abilities: () => request<{ equipped: string | null; abilities: any[] }>("/abilities"),
   equipAbility: (ability_id: string | null) =>

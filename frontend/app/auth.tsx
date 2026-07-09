@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, Pressable, Text, TextInput } from "react-native";
+import { View, StyleSheet, Text, TextInput } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
@@ -19,32 +19,24 @@ const BG =
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { login, register } = useAuth();
-  const [mode, setMode] = useState<"login" | "register">("register");
-  const [email, setEmail] = useState("");
+  const { enterAsGuest } = useAuth();
   const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
     setError(null);
-    if (!email.trim() || !password || (mode === "register" && !username.trim())) {
-      setError("Please fill in all fields.");
+    if (username.trim().length < 2) {
+      setError("Pick a callsign (at least 2 characters).");
       return;
     }
     setLoading(true);
     try {
-      if (mode === "register") {
-        await register(email.trim(), username.trim(), password);
-      } else {
-        await login(email.trim(), password);
-      }
+      await enterAsGuest(username.trim());
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace("/(tabs)");
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : "Something went wrong.";
-      setError(msg);
+      setError(e instanceof ApiError ? e.message : "Something went wrong.");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setLoading(false);
@@ -73,56 +65,17 @@ export default function AuthScreen() {
         <Text style={styles.subtitle}>100 enter. One survives. Don&apos;t press it wrong.</Text>
 
         <View style={styles.card} testID="auth-card">
-          <View style={styles.toggle}>
-            <Pressable
-              testID="tab-register"
-              onPress={() => setMode("register")}
-              style={[styles.toggleBtn, mode === "register" && styles.toggleActive]}
-            >
-              <Text style={[styles.toggleText, mode === "register" && styles.toggleTextActive]}>
-                SIGN UP
-              </Text>
-            </Pressable>
-            <Pressable
-              testID="tab-login"
-              onPress={() => setMode("login")}
-              style={[styles.toggleBtn, mode === "login" && styles.toggleActive]}
-            >
-              <Text style={[styles.toggleText, mode === "login" && styles.toggleTextActive]}>
-                LOG IN
-              </Text>
-            </Pressable>
-          </View>
-
+          <Text style={styles.label}>CHOOSE YOUR CALLSIGN</Text>
           <TextInput
-            testID="input-email"
-            placeholder="Email"
+            testID="input-username"
+            placeholder="e.g. RedButton_Rex"
             placeholderTextColor={colors.muted}
-            value={email}
-            onChangeText={setEmail}
+            value={username}
+            onChangeText={setUsername}
             autoCapitalize="none"
-            keyboardType="email-address"
-            style={styles.input}
-          />
-          {mode === "register" && (
-            <TextInput
-              testID="input-username"
-              placeholder="Callsign (username)"
-              placeholderTextColor={colors.muted}
-              value={username}
-              onChangeText={setUsername}
-              autoCapitalize="none"
-              maxLength={16}
-              style={styles.input}
-            />
-          )}
-          <TextInput
-            testID="input-password"
-            placeholder="Password"
-            placeholderTextColor={colors.muted}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
+            maxLength={16}
+            returnKeyType="go"
+            onSubmitEditing={submit}
             style={styles.input}
           />
 
@@ -135,11 +88,12 @@ export default function AuthScreen() {
 
           <PrimaryButton
             testID="auth-submit"
-            label={mode === "register" ? "ENTER THE ARENA" : "RETURN TO ARENA"}
+            label="ENTER THE ARENA"
             onPress={submit}
             loading={loading}
             style={{ marginTop: space.sm }}
           />
+          <Text style={styles.note}>No email. No password. Just your callsign.</Text>
         </View>
       </KeyboardAwareScrollView>
     </View>
@@ -172,27 +126,23 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: space.lg,
   },
-  toggle: {
-    flexDirection: "row",
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: space.xs,
-    marginBottom: space.lg,
+  label: {
+    fontFamily: font.semi,
+    fontSize: type.sm,
+    color: colors.muted,
+    letterSpacing: 1,
+    marginBottom: space.sm,
   },
-  toggleBtn: { flex: 1, paddingVertical: space.md, alignItems: "center", borderRadius: radius.sm },
-  toggleActive: { backgroundColor: colors.red },
-  toggleText: { fontFamily: font.semi, fontSize: type.base, color: colors.muted, letterSpacing: 1 },
-  toggleTextActive: { color: "#FFFFFF" },
   input: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
     paddingHorizontal: space.lg,
-    height: 52,
+    height: 56,
     color: colors.onSurface,
-    fontFamily: font.regular,
-    fontSize: type.lg,
+    fontFamily: font.semi,
+    fontSize: type.xl,
     marginBottom: space.md,
   },
   errorBox: {
@@ -205,4 +155,11 @@ const styles = StyleSheet.create({
     marginBottom: space.sm,
   },
   errorText: { color: colors.red, fontFamily: font.medium, fontSize: type.base, flex: 1 },
+  note: {
+    fontFamily: font.regular,
+    fontSize: type.sm,
+    color: colors.muted,
+    textAlign: "center",
+    marginTop: space.md,
+  },
 });
