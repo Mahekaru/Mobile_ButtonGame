@@ -91,13 +91,9 @@ export default function CosmeticsScreen() {
         <Text style={styles.subtitle}>Style points only · zero gameplay edge</Text>
       </View>
 
-      {/* Category chip row (single horizontal scroller) */}
+      {/* Category chips — wrap to multiple rows so all are always reachable */}
       <View style={styles.chipRowWrap}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chipRow}
-        >
+        <View style={styles.chipRow}>
           {CATEGORIES.map((c) => {
             const on = active === c.key;
             return (
@@ -114,7 +110,7 @@ export default function CosmeticsScreen() {
               </Pressable>
             );
           })}
-        </ScrollView>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: space.xl, paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
@@ -154,12 +150,12 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: space.xl, paddingBottom: space.md },
   title: { fontFamily: font.displayBold, fontSize: type["3xl"], color: colors.onSurface, letterSpacing: 1 },
   subtitle: { fontFamily: font.regular, fontSize: type.sm, color: colors.muted, marginTop: 2 },
-  chipRowWrap: { height: 56, justifyContent: "center", borderBottomWidth: 1, borderBottomColor: colors.border },
-  chipRow: { gap: space.sm, paddingHorizontal: space.xl, alignItems: "center" },
+  chipRowWrap: { paddingVertical: space.md, borderBottomWidth: 1, borderBottomColor: colors.border },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: space.sm, paddingHorizontal: space.xl },
   chip: {
     height: 36,
     flexShrink: 0,
-    paddingHorizontal: space.lg,
+    paddingHorizontal: space.md,
     borderRadius: radius.pill,
     backgroundColor: colors.surface2,
     borderWidth: 1,

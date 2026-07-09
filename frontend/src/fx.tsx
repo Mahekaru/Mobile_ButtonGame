@@ -1,6 +1,7 @@
 // Lightweight in-match victory particle effects (confetti / fireworks / gold rain).
 import React, { useEffect } from "react";
 import { View, StyleSheet, Dimensions } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -8,6 +9,7 @@ import Animated, {
   withTiming,
   withDelay,
   Easing,
+  interpolate,
 } from "react-native-reanimated";
 
 const { width: W, height: H } = Dimensions.get("window");
@@ -91,8 +93,8 @@ export function VictoryFX({ type }: { type?: string }) {
 // ButtonFX — animated aura rendered AROUND the panic button (cosmetic).
 // types: "glow" (pulsing halo), "fire" (rising flames), "electric" (spinning arc)
 // ---------------------------------------------------------------------------
-const FIRE_COLORS = ["#FF3B30", "#FF9500", "#FFCC00"];
-const FIRE_COUNT = 14;
+const FIRE_COUNT = 20;
+const FIRE_GRAD = ["#FFE39A", "#FF9500", "#FF3B30"];
 
 function Layer({ children }: { children: React.ReactNode }) {
   return (
@@ -102,54 +104,93 @@ function Layer({ children }: { children: React.ReactNode }) {
   );
 }
 
-function GlowRing({ delay, ringSize, color }: { delay: number; ringSize: number; color: string }) {
-  const p = useSharedValue(0);
-  useEffect(() => {
-    p.value = withDelay(
-      delay,
-      withRepeat(withTiming(1, { duration: 1900, easing: Easing.out(Easing.quad) }), -1, false),
-    );
-  }, []);
+// --- GLOW: a soft breathing bloom made of layered translucent discs ---------
+const GLOW_LAYERS = [
+  { f: 1.0, color: "rgba(255,59,48,0.14)" },
+  { f: 0.84, color: "rgba(255,94,40,0.18)" },
+  { f: 0.68, color: "rgba(255,120,32,0.24)" },
+  { f: 0.54, color: "rgba(255,149,0,0.30)" },
+  { f: 0.42, color: "rgba(255,201,128,0.38)" },
+];
+
+function GlowDisc({ t, discSize, color }: { t: Animated.SharedValue<number>; discSize: number; color: string }) {
   const style = useAnimatedStyle(() => ({
-    opacity: (1 - p.value) * 0.55,
-    transform: [{ scale: 0.72 + p.value * 0.55 }],
+    transform: [{ scale: interpolate(t.value, [0, 1], [0.88, 1.12]) }],
+    opacity: interpolate(t.value, [0, 1], [0.6, 1]),
   }));
   return (
     <Layer>
-      <Animated.View
-        style={[
-          { width: ringSize, height: ringSize, borderRadius: ringSize / 2, borderWidth: 3, borderColor: color },
-          style,
-        ]}
-      />
+      <Animated.View style={[{ width: discSize, height: discSize, borderRadius: discSize / 2, backgroundColor: color }, style]} />
     </Layer>
   );
 }
 
-function FlameTongue({ index, size, color }: { index: number; size: number; color: string }) {
-  const angle = (index / FIRE_COUNT) * Math.PI * 2;
-  const rise = useSharedValue(0);
-  const dur = rand(720, 1250);
+function GlowAura({ size }: { size: number }) {
+  const t = useSharedValue(0);
   useEffect(() => {
-    rise.value = withDelay(
-      (index % 7) * 130,
+    t.value = withRepeat(withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }), -1, true);
+  }, []);
+  return (
+    <>
+      {GLOW_LAYERS.map((l, i) => (
+        <GlowDisc key={i} t={t} discSize={size * l.f} color={l.color} />
+      ))}
+    </>
+  );
+}
+
+// --- FIRE: warm base bloom + rising, flickering flame tongues ----------------
+function FireBase({ size }: { size: number }) {
+  return (
+    <>
+      <Layer>
+        <View style={{ width: size * 0.72, height: size * 0.72, borderRadius: size, backgroundColor: "rgba(255,59,48,0.12)" }} />
+      </Layer>
+      <Layer>
+        <View style={{ width: size * 0.5, height: size * 0.5, borderRadius: size, backgroundColor: "rgba(255,149,0,0.14)" }} />
+      </Layer>
+    </>
+  );
+}
+
+function Flame({ index, size, total }: { index: number; size: number; total: number }) {
+  const p = useSharedValue(0);
+  const dur = 820 + ((index * 137) % 620);
+  useEffect(() => {
+    p.value = withDelay(
+      (index % 9) * 80,
       withRepeat(withTiming(1, { duration: dur, easing: Easing.out(Easing.quad) }), -1, false),
     );
   }, []);
-  const baseR = size * 0.42;
-  const cx = Math.cos(angle) * baseR;
-  const cy = Math.sin(angle) * baseR;
-  const style = useAnimatedStyle(() => ({
-    opacity: (1 - rise.value) * 0.9,
-    transform: [
-      { translateX: cx },
-      { translateY: cy - rise.value * 26 },
-      { scale: 1 - rise.value * 0.6 },
-    ],
-  }));
+  // Spread flames across the lower ~270° arc, biased toward the bottom.
+  const arc = Math.PI * 1.5;
+  const a = Math.PI * 0.75 + (index / (total - 1)) * arc;
+  const R = size * 0.4;
+  const bx = Math.cos(a) * R;
+  const by = Math.sin(a) * R * 0.72 + size * 0.05;
+  const csize = 13 + (index % 3) * 5;
+  const sway = ((index % 5) - 2) * 4;
+  const style = useAnimatedStyle(() => {
+    const rise = p.value;
+    return {
+      opacity: interpolate(rise, [0, 0.15, 1], [0, 0.95, 0]),
+      transform: [
+        { translateX: bx + Math.sin(rise * Math.PI) * sway },
+        { translateY: by - rise * size * 0.32 },
+        { scale: interpolate(rise, [0, 1], [1, 0.15]) },
+      ],
+    };
+  });
   return (
     <Layer>
-      <Animated.View style={[{ width: 15, height: 20, borderRadius: 9, backgroundColor: color }, style]} />
+      <Animated.View style={[{ width: csize, height: csize * 1.35 }, style]}>
+        <LinearGradient
+          colors={FIRE_GRAD}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={{ flex: 1, borderRadius: csize / 2 }}
+        />
+      </Animated.View>
     </Layer>
   );
 }
@@ -195,14 +236,15 @@ export function ButtonFX({ type, size = 260 }: { type?: string; size?: number })
       pointerEvents="none"
       style={{ position: "absolute", width: size, height: size, alignItems: "center", justifyContent: "center" }}
     >
-      {type === "glow" &&
-        [0, 640, 1280].map((d, i) => (
-          <GlowRing key={i} delay={d} ringSize={size * 0.82} color={i === 1 ? "#FF9500" : "#FF3B30"} />
-        ))}
-      {type === "fire" &&
-        Array.from({ length: FIRE_COUNT }).map((_, i) => (
-          <FlameTongue key={i} index={i} size={size} color={FIRE_COLORS[i % FIRE_COLORS.length]} />
-        ))}
+      {type === "glow" && <GlowAura size={size * 0.92} />}
+      {type === "fire" && (
+        <>
+          <FireBase size={size} />
+          {Array.from({ length: FIRE_COUNT }).map((_, i) => (
+            <Flame key={i} index={i} size={size} total={FIRE_COUNT} />
+          ))}
+        </>
+      )}
       {type === "electric" && <ElectricArc size={size} />}
     </View>
   );

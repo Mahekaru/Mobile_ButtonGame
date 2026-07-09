@@ -318,6 +318,20 @@ export default function MatchScreen() {
 function LobbyView({ state, insets, onCancel, onStart }: any) {
   const alive = state.players_alive;
   const total = state.players_total;
+
+  // Loading bar fills as the arena populates (driven by the lobby countdown).
+  const totalRef = useRef(0);
+  const cd = state.countdown ?? 0;
+  if (cd > totalRef.current) totalRef.current = cd;
+  const denom = totalRef.current || 1;
+  const progress = Math.min(1, Math.max(0.05, 1 - cd / denom));
+  const loaded = Math.min(total, Math.max(alive, Math.round(progress * total)));
+  const fill = useSharedValue(0);
+  useEffect(() => {
+    fill.value = withTiming(progress, { duration: 450 });
+  }, [progress]);
+  const fillStyle = useAnimatedStyle(() => ({ width: `${fill.value * 100}%` }));
+
   return (
     <View style={styles.root} testID="lobby-screen">
       <LinearGradient colors={["#2A0705", colors.surface]} style={StyleSheet.absoluteFill} />
@@ -349,10 +363,10 @@ function LobbyView({ state, insets, onCancel, onStart }: any) {
         )}
 
         <View style={styles.lobbyMeter}>
-          <View style={[styles.lobbyFill, { width: `${(alive / total) * 100}%` }]} />
+          <Animated.View style={[styles.lobbyFill, fillStyle]} />
         </View>
-        <Text style={styles.lobbyCount}>
-          {alive} / {total} operatives
+        <Text style={styles.lobbyCount} testID="lobby-loaded">
+          {progress >= 0.99 ? "ARENA READY" : `LOADING OPERATIVES · ${loaded} / ${total}`}
         </Text>
 
         <ScrollView style={{ marginTop: space.xl, width: "100%" }} showsVerticalScrollIndicator={false}>

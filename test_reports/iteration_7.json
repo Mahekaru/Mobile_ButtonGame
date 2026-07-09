@@ -1,0 +1,35 @@
+{
+  "summary": "Iteration 7 UI polish verified (frontend only, mobile 390x844). (1) LOBBY LOADING BAR — after tapping find-match-btn the lobby-screen renders a red progress bar with testID 'lobby-loaded'. Over ~8s the label ticked through LOADING OPERATIVES · 5/100 → 9 → 18 → 27 → 44 → 53 → 62 → 80 → 89 while the animated fill grew monotonically (0.45px → 26.6 → 60.6 → 90.9 → 132.6 → 181.0 → 212.1 → 246.0 → 298.6 over a 342px track, i.e. 0% → 87%). The app then transitioned into match-screen with HUD intact. (2) COSMETICS CHIPS ALL REACHABLE — the six category chips now wrap into TWO rows within the 390-px viewport (row 1 y=91: cat-button_skin/cat-button_fx/cat-icon/cat-title; row 2 y=135: cat-elim_effect/cat-victory_anim). Every chip has x+width ≤ 306 (comfortably ≤390) and is is_visible()=True. Tapping cat-victory_anim reveals the Victory tiles (cosmetic-confetti found) and cat-elim_effect reveals the Effects tiles (cosmetic-fade found). The previous 'far-right chip unreachable' regression is fixed. (3) BUTTON FX (fire) — bumped guest user 'FXtest1783628288' to xp=3000/level=6 in Mongo (test_database.users) and POSTed /api/profile/cosmetic {category:'button_fx', item_id:'fire'} (200 OK). Joined a match, reached match-screen active phase (danger-pct/panic-button/remaining-count all visible), and probed the DOM near the panic-button — computed styles show flame LinearGradient nodes (flameLinearBg=3 orange/red gradients rendering as part of the 20-flame animation) around the button at rect x=91 y=482 w=208 h=208, no red-screen error, no runtime exception, panic-button remained visible and tappable. Screenshots captured. (4) TAB BAR SAFE AREA — all 5 tab labels render at y=822 within the 844-px viewport with widths 20–48px; Play / Rank / Abilities / Cosmetics / Stats are all tappable and switch screens correctly. No clipping. (5) REGRESSION — iteration_6 already verified full CONTINUE/ad flow (18/18 backend). This round only touched UI; ad flow, xp curve, and abilities unchanged. No new integration errors observed.\n\nResidual warning still present (from iter6): 'props.pointerEvents is deprecated. Use style.pointerEvents' emitted from /app/frontend/app/match/[id].tsx:306 (reveal Animated.View). Not blocking.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "all (web preview only)", "issues": ["IBMPlexSans TTF fonts still fail to decode via the Expo web preview proxy (OTS parsing error / invalid sfntVersion). Long-standing web-preview-only regression; falls back to system font. Does not affect native builds."]}
+    ],
+    "react_native_issues": [
+      {"component": "match/[id].tsx reveal Animated.View", "issue": "'props.pointerEvents is deprecated. Use style.pointerEvents' warning still emitted. Reference: /app/frontend/app/match/[id].tsx:306"}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration6.py (previous backend regression suite - still passing)",
+    "/tmp/setup_fx_user.py (helper: guest signup + Mongo xp bump + equip fire via API)"
+  ],
+  "action_items": [
+    "(Optional) Silence the residual RN-Web 'props.pointerEvents is deprecated' warning on match/[id].tsx:306 by moving pointerEvents from the prop to the style object."
+  ],
+  "critical_code_review_comments": [
+    "match/[id].tsx LobbyView: totalRef.current holds the max countdown seen -> progress = 1 - cd/denom clamped to [0.05, 1.0]; fill.value is animated via withTiming(progress, 450ms) making the bar visibly slide instead of jumping. lobby-loaded label correctly falls back to 'ARENA READY' when progress >= 0.99.",
+    "cosmetics.tsx chipRow now uses flexWrap:'wrap' + gap; chip flexShrink:0 keeps them from squishing. Confirmed all six chips fit in two rows within the 390-px viewport (max right edge 306 px).",
+    "fx.tsx ButtonFX: fire renders FireBase (2 warm discs) + 20 Flame components, each with expo-linear-gradient tongue and randomized delay/duration/opacity. GlowAura renders 5 layered translucent discs breathing 0.88↔1.12 scale over 1500ms. ElectricArc rotates 16 cyan dashes over 2600ms. All effects wrapped in pointerEvents='none' Layer -> never intercepts the panic-button press.",
+    "(tabs)/_layout.tsx: tabBarStyle now uses 64 + insets.bottom for height and 8 + insets.bottom for paddingBottom -> web insets.bottom=0 keeps the pre-change layout, native builds get proper safe-area padding.",
+    "The panic-button remains fully interactive with fire FX equipped — the ButtonFX View is siblings to the Pressable and marked pointerEvents='none' via the Layer helper, so tap targets are not blocked."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (unchanged this round; iter6 suite covers)", "frontend": "100% (4/4 UI polish items verified — loading bar, chips wrapped, fire FX rendered, tab bar visible)"},
+  "seed_data_creation": "Ephemeral guest user 'FXtest1783628288' created via /api/auth/guest, then xp=3000/level=6 set directly in test_database.users and button_fx='fire' equipped via POST /profile/cosmetic. No persistent seed data.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend base: https://danger-meter-3.preview.emergentagent.com/api. To equip fire (L5=2000xp) or glow (L2=200xp) button_fx on a fresh guest for FX testing: (1) POST /api/auth/guest {username} — grab id + token; (2) update test_database.users where _id=<id> setting xp/level; NOTE Mongo primary key is _id NOT id (there is no 'id' field on the document); (3) POST /api/profile/cosmetic {category:'button_fx', item_id:'fire'|'glow'} with Bearer token. Fire = 20 flames with expo-linear-gradient tongues; glow = 5 breathing translucent discs; both render only while me.alive during active phase and are pointerEvents='none' so they never block the panic-button. Cosmetics chips now wrap across two rows (all 6 fully within 390-px viewport) — no more horizontal scroll needed. Lobby loading bar has testID 'lobby-loaded' + a red animated fill; sample the fill width via the previousElementSibling of the label to prove it grows.",
+  "rca_of_issue": "N/A — all four UI polish items work as designed."
+}

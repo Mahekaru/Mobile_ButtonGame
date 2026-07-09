@@ -92,3 +92,9 @@ Multiplayer battle-royale game around a single shared button. 100 players; any l
 - Ads: CONTINUE always shown -> MANDATORY full-screen ad only if 3 min since last ad (else straight to menu). Separate DOUBLE-XP button appears at RANDOM (~50%) = opt-in rewarded ad (watch=double XP, skip=none). Endpoints: /ads/status {mandatory_due,reward_available,...}, /ads/seen (new, records mandatory view), /ads/reward. Full-screen simulated overlay; real AdMob native-only.
 - New abilities (type 'active', arm-before-press): Vanish/hide L4 (5s untargetable+press-safe), Overcharge L6 (3x match XP, +15 danger surcharge), Adrenaline L8 (2x patience XP), Steady Hand L10 (freeze danger 6s).
 - XP curve steepened: xp_for_level = 100*(n-1)*n (L2=200, L5=2000); compute_match_xp reduced (base 20, kills*18, win 150, placement//3) -> standard slower progression.
+
+## Update — Lobby loading bar, chip wrap, tab safe-area, polished FX
+- Lobby: reanimated loading bar + "LOADING OPERATIVES · n/100" that fills to "ARENA READY" as the countdown elapses (match/[id].tsx LobbyView).
+- Cosmetics category chips now WRAP into 2 rows (no horizontal scroll) so all 6 are always reachable (cosmetics.tsx).
+- Tab bar height/paddingBottom now include useSafeAreaInsets bottom so buttons aren't cut off on devices with a home indicator ((tabs)/_layout.tsx).
+- ButtonFX rewritten with reanimated: glow = layered breathing bloom (GlowAura); fire = warm base bloom + 20 gradient flame tongues rising/flickering (fx.tsx). electric unchanged.

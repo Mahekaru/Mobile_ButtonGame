@@ -2,10 +2,12 @@ import { Tabs } from "expo-router";
 import { Platform } from "react-native";
 import { BlurView } from "expo-blur";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { colors, font } from "@/src/theme";
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
       screenListeners={{
@@ -20,8 +22,8 @@ export default function TabsLayout() {
           backgroundColor: Platform.OS === "android" ? colors.surface2 : "rgba(20,20,26,0.7)",
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 8,
+          height: 64 + insets.bottom,
+          paddingBottom: 8 + insets.bottom,
           paddingTop: 8,
         },
         tabBarBackground: () =>
