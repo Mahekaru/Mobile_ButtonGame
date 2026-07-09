@@ -76,6 +76,11 @@ export const api = {
     request<{ claimed: number; streak: number; is_weekly: boolean; user: any }>("/rewards/claim", {
       method: "POST",
     }),
+  adsStatus: () =>
+    request<{ can_watch: boolean; cooldown_remaining: number; reward: number; already_claimed: boolean }>(
+      "/ads/status",
+    ),
+  claimAdReward: () => request<{ rewarded: number; user: any }>("/ads/reward", { method: "POST" }),
   friends: () => request<{ friend_code: string; friends: any[] }>("/friends"),
   addFriend: (code: string) =>
     request<{ added: any }>("/friends/add", { method: "POST", body: { code } }),

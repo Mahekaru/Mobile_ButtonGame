@@ -170,6 +170,10 @@ def _new_user_doc(user_id: str, username: str, friend_code: str, email=None, pas
         "rivals": [],
         "last_daily_claim": None,
         "daily_streak": 0,
+        "last_ad_at": None,
+        "last_match_xp": 0,
+        "last_match_id": None,
+        "ad_claimed_for": None,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "xp": 0,
         "level": 1,
@@ -218,6 +222,51 @@ async def login(body: LoginBody):
 @api_router.get("/auth/me")
 async def me(user: dict = Depends(get_current_user)):
     return {"user": public_user(user)}
+
+
+# ---------------------------------------------------------------------------
+# Rewarded ads (double-XP after a match, 3-min cooldown)
+# ---------------------------------------------------------------------------
+def _now_ts() -> float:
+    return datetime.now(timezone.utc).timestamp()
+
+
+def _ad_state(user: dict) -> dict:
+    last_ad = user.get("last_ad_at")
+    remaining = 0.0
+    if last_ad:
+        remaining = max(0.0, C.AD_COOLDOWN_SEC - (_now_ts() - last_ad))
+    reward = user.get("last_match_xp", 0)
+    already = (user.get("last_match_id") is not None
+               and user.get("ad_claimed_for") == user.get("last_match_id"))
+    can_watch = remaining <= 0 and reward > 0 and not already
+    return {"can_watch": can_watch, "cooldown_remaining": round(remaining),
+            "reward": reward, "already_claimed": already}
+
+
+@api_router.get("/ads/status")
+async def ads_status(user: dict = Depends(get_current_user)):
+    return _ad_state(user)
+
+
+@api_router.post("/ads/reward")
+async def ads_reward(user: dict = Depends(get_current_user)):
+    state = _ad_state(user)
+    if state["cooldown_remaining"] > 0:
+        raise HTTPException(status_code=400, detail="Ad on cooldown")
+    if state["reward"] <= 0 or state["already_claimed"]:
+        raise HTTPException(status_code=400, detail="No reward available")
+    reward = state["reward"]
+    new_xp = user.get("xp", 0) + reward
+    await db.users.update_one(
+        {"_id": user["_id"]},
+        {"$inc": {"xp": reward},
+         "$set": {"last_ad_at": _now_ts(),
+                  "ad_claimed_for": user.get("last_match_id"),
+                  "level": C.level_for_xp(new_xp)}},
+    )
+    updated = await db.users.find_one({"_id": user["_id"]})
+    return {"rewarded": reward, "user": public_user(updated)}
 
 
 @api_router.post("/profile/name")

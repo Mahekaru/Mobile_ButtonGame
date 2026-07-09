@@ -468,7 +468,7 @@ class MatchManager:
                 "placement_sum": placement,
             },
             "$max": {"highest_streak": p.kills},
-            "$set": {"level": new_level},
+            "$set": {"level": new_level, "last_match_xp": xp_gained, "last_match_id": match.id},
         }
         # Remember the other humans from this match as future "rivals".
         others = [q.user_id for q in match.players.values()

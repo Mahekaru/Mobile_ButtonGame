@@ -397,6 +397,40 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
   const newLevel = levelForXp(newXp);
   const leveledUp = newLevel > oldLevel;
 
+  const [showAd, setShowAd] = useState(false);
+  const [adReward, setAdReward] = useState(0);
+  const [adClaimed, setAdClaimed] = useState(0);
+  const [adCooldown, setAdCooldown] = useState(0);
+  useEffect(() => {
+    let active = true;
+    api
+      .adsStatus()
+      .then((s) => {
+        if (!active) return;
+        if (s.can_watch) {
+          setAdReward(s.reward);
+          setShowAd(true);
+        } else if (s.cooldown_remaining > 0) {
+          setAdCooldown(s.cooldown_remaining);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+  const claimAd = async () => {
+    try {
+      const r = await api.claimAdReward();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setAdClaimed(r.rewarded);
+    } catch {
+      /* ignore */
+    } finally {
+      setShowAd(false);
+    }
+  };
+
   const share = async () => {
     if (sharing) return;
     setSharing(true);
@@ -494,12 +528,76 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
           <MaterialCommunityIcons name="share-variant" size={20} color="#fff" />
           <Text style={styles.shareText}>{sharing ? "SHARING…" : "SHARE RECAP"}</Text>
         </Pressable>
+
+        {adClaimed > 0 ? (
+          <Text style={[styles.adNote, { color: colors.success }]} testID="ad-claimed">
+            DOUBLE XP! +{adClaimed} bonus applied 🎉
+          </Text>
+        ) : adCooldown > 0 ? (
+          <Text style={styles.adNote}>Next bonus ad in {Math.ceil(adCooldown / 60)} min</Text>
+        ) : null}
       </ScrollView>
 
       <View style={{ padding: space.xl, paddingBottom: insets.bottom + space.lg }}>
         <Pressable testID="return-lobby-btn" onPress={onExit} style={styles.returnBtn}>
           <Text style={styles.returnText}>RETURN TO LOBBY</Text>
         </Pressable>
+      </View>
+
+      {showAd && <AdOverlay reward={adReward} onClaim={claimAd} onSkip={() => setShowAd(false)} />}
+    </Animated.View>
+  );
+}
+
+function AdOverlay({ reward, onClaim, onSkip }: any) {
+  const [left, setLeft] = useState(5);
+  const [claiming, setClaiming] = useState(false);
+  useEffect(() => {
+    const iv = setInterval(() => setLeft((l) => (l <= 1 ? 0 : l - 1)), 1000);
+    return () => clearInterval(iv);
+  }, []);
+  const done = left <= 0;
+  return (
+    <Animated.View entering={FadeIn.duration(200)} style={styles.adWrap} testID="ad-overlay">
+      <View style={styles.adCard}>
+        <View style={styles.adHeader}>
+          <View style={styles.adBadge}>
+            <Text style={styles.adBadgeText}>AD</Text>
+          </View>
+          <Text style={styles.adHeaderText}>ADVERTISEMENT · SIMULATED</Text>
+          <Pressable testID="ad-skip" onPress={onSkip} style={styles.adSkip} hitSlop={10}>
+            <MaterialCommunityIcons name="close" size={18} color={colors.muted} />
+          </Pressable>
+        </View>
+        <LinearGradient colors={["#0A3D62", "#0C2461"]} style={styles.adBanner}>
+          <MaterialCommunityIcons name="sword-cross" size={40} color="#FFD700" />
+          <Text style={styles.adBannerTitle}>GALAXY CLASH</Text>
+          <Text style={styles.adBannerSub}>Build your empire · Install free</Text>
+          <View style={styles.adStars}>
+            {[0, 1, 2, 3, 4].map((i) => (
+              <MaterialCommunityIcons key={i} name="star" size={14} color="#FFD700" />
+            ))}
+          </View>
+        </LinearGradient>
+        <Text style={styles.adRewardLine}>Finish this ad to earn +{reward} bonus XP (DOUBLE your match XP)</Text>
+        {done ? (
+          <Pressable
+            testID="ad-claim"
+            disabled={claiming}
+            onPress={async () => {
+              setClaiming(true);
+              await onClaim();
+            }}
+            style={styles.adClaimBtn}
+          >
+            <MaterialCommunityIcons name="gift" size={20} color={colors.surface} />
+            <Text style={styles.adClaimText}>{claiming ? "…" : `CLAIM +${reward} XP`}</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.adCountdown}>
+            <Text style={styles.adCountdownText}>Reward unlocks in {left}s…</Text>
+          </View>
+        )}
       </View>
     </Animated.View>
   );
