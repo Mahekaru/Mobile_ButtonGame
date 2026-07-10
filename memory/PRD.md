@@ -105,3 +105,15 @@ Multiplayer battle-royale game around a single shared button. 100 players; any l
 - New PressBurst FX (fx.tsx): one-shot ring+sparks fired on every panic press, tinted by button_fx (fire/electric/glow) or skin color otherwise (match onPanic -> burstKey).
 - HUD: elimination-feed bottom aligned with KILLS card bottom (statCard flex:1).
 - Bottom-button clearance bumped: tab bar includes safe-area inset; menu footer insets.bottom+96; results/lobby footers insets.bottom+space.xl.
+
+## Update — Leaderboards + Daily Challenges + WebSocket + Spectator (2026-07 / iteration_10 verified)
+- **Leaderboards**: GET /api/leaderboard?scope=global|friends (top 100 by xp desc, tiebreak wins; is_me + my_rank fallback via count_documents). New /leaderboard modal screen with GLOBAL/FRIENDS tabs, medal top-3, "YOUR RANK" chip; trophy header icon on Play menu.
+- **Daily challenges**: deterministic 3/day draw seeded by UTC date (challenges.py CHALLENGE_POOL, 8 defs). Progress accrues in game.persist_player after each match (metrics: wins/eliminations/matches/top10/patience/survive). GET /api/challenges, POST /api/challenges/claim/{id} (grants reward XP once). New /challenges modal screen with progress bars + claim; summary card on Play menu.
+- **WebSocket real-time transport**: /api/match/{id}/ws?token=JWT. Match.broadcast() pushes personalized state on lobby countdown, each 0.8s tick, every press, leave, and match end. Verified working through external wss ingress. Client uses WS with automatic HTTP-polling fallback (src/api.ts matchWsUrl).
+- **Spectator view**: state_for now returns `results` only when phase==ended and `my_result` while dead. Dead players see SpectatorView (live feed + remaining + kills + VIEW MY RESULTS + LEAVE TO MENU) until they opt into results or the match ends.
+- **Fixes**: auth screen auto-redirects to /(tabs) when session becomes valid (iter9 residual resolved); client progression mirror xpForLevel aligned to backend curve (removed erroneous /2).
+- Verified: 10/10 new backend tests + full frontend flows (leaderboard, challenges, WS match, spectator, auth redirect).
+
+## Known residual (low priority)
+- RN-Web warning `props.pointerEvents is deprecated` at match/[id].tsx reveal banner (web-only cosmetic).
+- IBM Plex TTFs fail to decode via preview proxy (web-only; native builds load fine).
