@@ -462,9 +462,64 @@ function LobbyView({ state, insets, onCancel, onStart }: any) {
   );
 }
 
+// Shared ad-gated exit: shows the MANDATORY interstitial if 3 min have passed
+// since the last ad, otherwise exits straight away. Used by both the Results
+// "Continue" button and the Spectator "Leave to menu" button so they behave
+// identically.
+function useMandatoryAdExit(onExit: () => void) {
+  const { user } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [showAd, setShowAd] = useState(false);
+  const [mandatoryDue, setMandatoryDue] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    api
+      .adsStatus()
+      .then((s) => {
+        if (active) setMandatoryDue(s.mandatory_due);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const markAdSeen = async () => {
+    try {
+      await api.adsSeen();
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleExit = async () => {
+    if (busy) return;
+    if (!mandatoryDue) {
+      onExit();
+      return;
+    }
+    if (adsSupported) {
+      setBusy(true);
+      await showRewardedInterstitial(user?.id || "guest"); // mandatory: no reward
+      await markAdSeen();
+      onExit();
+      return;
+    }
+    setShowAd(true);
+  };
+
+  const AdPortal = showAd ? (
+    <AdOverlay mode="mandatory" reward={0} onSkip={onExit} onClaim={markAdSeen} onProceed={onExit} />
+  ) : null;
+
+  return { handleExit, busy, AdPortal };
+}
+
 function SpectatorView({ state, insets, onViewResults, onExit }: any) {
   const me = state.me;
   const placement = me?.placement;
+  const { handleExit, busy, AdPortal } = useMandatoryAdExit(onExit);
   return (
     <View style={styles.root} testID="spectator-screen">
       <LinearGradient
@@ -524,10 +579,11 @@ function SpectatorView({ state, insets, onViewResults, onExit }: any) {
           <MaterialCommunityIcons name="poll" size={20} color={colors.surface} />
           <Text style={styles.specResultsText}>VIEW MY RESULTS</Text>
         </Pressable>
-        <Pressable testID="spectator-leave-btn" onPress={onExit} style={styles.cancelBtn}>
-          <Text style={styles.cancelText}>LEAVE TO MENU</Text>
+        <Pressable testID="spectator-leave-btn" onPress={handleExit} disabled={busy} style={styles.cancelBtn}>
+          <Text style={styles.cancelText}>{busy ? "LOADING AD…" : "LEAVE TO MENU"}</Text>
         </Pressable>
       </View>
+      {AdPortal}
     </View>
   );
 }
