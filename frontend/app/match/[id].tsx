@@ -1185,10 +1185,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   recapHead: { flexDirection: "row", alignItems: "center", gap: space.xs, marginBottom: space.md },
-  recapBrand: { fontFamily: font.displayBold, fontSize: type.base, color: colors.onSurface3, letterSpacing: 2 },
-  recapUser: { fontFamily: font.semi, fontSize: type.lg, color: colors.onSurface2, marginTop: 2 },
-  resultTitle: { fontFamily: font.displayBold, fontSize: 52, letterSpacing: 2, marginTop: space.sm },
-  resultPlace: { fontFamily: font.displaySemi, fontSize: type["2xl"], color: colors.onSurface, marginTop: space.xs },
+  recapBrand: { fontFamily: font.displayBold, fontSize: type.base, color: colors.onSurface3, letterSpacing: 2, textAlign: "center" },
+  recapUser: { fontFamily: font.semi, fontSize: type.lg, color: colors.onSurface2, marginTop: 2, textAlign: "center" },
+  resultTitle: { fontFamily: font.displayBold, fontSize: 52, letterSpacing: 2, marginTop: space.sm, textAlign: "center" },
+  resultPlace: { fontFamily: font.displaySemi, fontSize: type["2xl"], color: colors.onSurface, marginTop: space.xs, textAlign: "center" },
   resultStats: {
     flexDirection: "row",
     alignItems: "center",
@@ -1214,7 +1214,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.md,
     marginTop: space.lg,
   },
-  bonusText: { fontFamily: font.semi, fontSize: type.sm, color: colors.amber },
+  bonusText: { fontFamily: font.semi, fontSize: type.sm, color: colors.amber, textAlign: "center" },
   levelUp: {
     flexDirection: "row",
     alignItems: "center",
