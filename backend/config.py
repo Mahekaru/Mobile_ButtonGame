@@ -214,7 +214,7 @@ DEFAULT_COSMETICS = {
 # ---------------------------------------------------------------------------
 # Progression / rank math
 # ---------------------------------------------------------------------------
-MAX_LEVEL = 50
+MAX_LEVEL = 100
 
 
 def xp_for_level(level: int) -> int:
@@ -245,6 +245,11 @@ RANK_TIERS = [
     (20, "Elite"),
     (25, "Master"),
     (30, "Legend"),
+    (40, "Mythic"),
+    (55, "Grandmaster"),
+    (70, "Champion"),
+    (85, "Apex"),
+    (100, "Immortal"),
 ]
 
 

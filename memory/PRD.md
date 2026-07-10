@@ -114,6 +114,10 @@ Multiplayer battle-royale game around a single shared button. 100 players; any l
 - **Fixes**: auth screen auto-redirects to /(tabs) when session becomes valid (iter9 residual resolved); client progression mirror xpForLevel aligned to backend curve (removed erroneous /2).
 - Verified: 10/10 new backend tests + full frontend flows (leaderboard, challenges, WS match, spectator, auth redirect).
 
+## Update — Level cap raised to 100 (2026-06)
+- MAX_LEVEL 50→100 (backend config.py + frontend src/progression.ts mirror). Quadratic XP curve unchanged (L100 = 990,000 cumulative XP).
+- Rank tiers extended beyond Legend(30): Mythic(40), Grandmaster(55), Champion(70), Apex(85), Immortal(100). Synced in config.py RANK_TIERS, progression.ts, and rank.tsx roadmap.
+
 ## Known residual (low priority)
 - RN-Web warning `props.pointerEvents is deprecated` at match/[id].tsx reveal banner (web-only cosmetic).
 - IBM Plex TTFs fail to decode via preview proxy (web-only; native builds load fine).

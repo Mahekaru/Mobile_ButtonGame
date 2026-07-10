@@ -16,6 +16,11 @@ const RANK_TIERS = [
   { level: 20, name: "Elite" },
   { level: 25, name: "Master" },
   { level: 30, name: "Legend" },
+  { level: 40, name: "Mythic" },
+  { level: 55, name: "Grandmaster" },
+  { level: 70, name: "Champion" },
+  { level: 85, name: "Apex" },
+  { level: 100, name: "Immortal" },
 ];
 const ABILITY_UNLOCKS: Record<number, string> = {
   2: "Unlocks: Second Chance",
