@@ -269,7 +269,7 @@ export default function MatchScreen() {
                 {f.type === "win" ? (
                   <Text style={{ color: colors.warning }}>👑 {f.victim} WINS</Text>
                 ) : f.self ? (
-                  <Text><Text style={{ color: colors.red }}>{f.victim}</Text> panicked</Text>
+                  <Text><Text style={{ color: colors.red }}>{f.victim}</Text> killed</Text>
                 ) : (
                   <Text>
                     <Text style={{ color: colors.amber }}>{f.killer}</Text>
@@ -640,7 +640,7 @@ function SpectatorView({ state, insets, onViewResults, onExit }: any) {
               {f.type === "win" ? (
                 <Text style={{ color: colors.warning }}>👑 {f.victim} WINS</Text>
               ) : f.self ? (
-                <Text><Text style={{ color: colors.red }}>{f.victim}</Text> panicked</Text>
+                <Text><Text style={{ color: colors.red }}>{f.victim}</Text> killed</Text>
               ) : (
                 <Text>
                   <Text style={{ color: colors.amber }}>{f.killer}</Text>
