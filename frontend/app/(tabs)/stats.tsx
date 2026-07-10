@@ -56,9 +56,9 @@ export default function StatsScreen() {
               <Metric testID="stat-matches" icon="sword-cross" value={played} label="MATCHES" />
               <Metric testID="stat-wins" icon="trophy" value={s.wins || 0} label="WINS" tint={colors.warning} />
               <Metric testID="stat-winrate" icon="percent" value={`${s.win_rate ?? 0}%`} label="WIN RATE" tint={colors.success} />
-              <Metric testID="stat-elims" icon="skull" value={s.total_eliminations || 0} label="ELIMINATIONS" tint={colors.red} />
+              <Metric testID="stat-elims" icon="skull" value={s.total_eliminations || 0} label="KOs" tint={colors.red} />
               <Metric testID="stat-streak" icon="fire" value={s.highest_streak || 0} label="BEST STREAK" tint={colors.amber} />
-              <Metric testID="stat-self" icon="emoticon-dead" value={s.times_self_eliminated || 0} label="SELF-ELIMS" />
+              <Metric testID="stat-self" icon="emoticon-dead" value={s.times_self_eliminated || 0} label="BACKFIRES" />
               <Metric testID="stat-avg" icon="flag-checkered" value={`#${s.avg_placement ?? 0}`} label="AVG PLACEMENT" />
               <Metric
                 testID="stat-survival"

@@ -152,13 +152,13 @@ export default function MatchScreen() {
       text = "ABILITY SAVED YOU!";
       tone = colors.success;
     } else if (outcome.self_death) {
-      text = "SELF ELIMINATION";
+      text = "BACKFIRE";
       tone = colors.red;
     } else if (outcome.victims.length > 1) {
-      text = `DOUBLE KILL: ${outcome.victims.join(" & ")}`;
+      text = `DOUBLE KO: ${outcome.victims.join(" & ")}`;
       tone = colors.amber;
     } else if (outcome.victims.length === 1) {
-      text = "PLAYER ELIMINATED";
+      text = `${outcome.victims[0]} IS OUT`;
       tone = colors.amber;
     } else {
       text = "SURVIVED";
@@ -259,7 +259,7 @@ export default function MatchScreen() {
       {/* HUD row */}
       <View style={[styles.hudRow, { paddingTop: insets.top + space.sm }]}>
         <GlassCard testID="elim-feed" style={styles.feedCard} innerStyle={{ flex: 1 }} intensity={25}>
-          <Text style={styles.feedTitle}>ELIMINATION FEED</Text>
+          <Text style={styles.feedTitle}>KO FEED</Text>
           <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
             {(state?.feed || []).length === 0 && (
               <Text style={styles.feedEmpty}>Awaiting first press…</Text>
@@ -269,11 +269,11 @@ export default function MatchScreen() {
                 {f.type === "win" ? (
                   <Text style={{ color: colors.warning }}>👑 {f.victim} WINS</Text>
                 ) : f.self ? (
-                  <Text><Text style={{ color: colors.red }}>{f.victim}</Text> killed</Text>
+                  <Text><Text style={{ color: colors.red }}>{f.victim}</Text>&apos;s press backfired</Text>
                 ) : (
                   <Text>
                     <Text style={{ color: colors.amber }}>{f.killer}</Text>
-                    {" ✕ "}
+                    {" KO'd "}
                     <Text style={{ color: colors.onSurface3 }}>{f.victim}</Text>
                   </Text>
                 )}
@@ -291,7 +291,7 @@ export default function MatchScreen() {
             <Text style={[styles.statNum, { color: colors.amber }]} testID="kill-count">
               {me?.kills ?? 0}
             </Text>
-            <Text style={styles.statCap}>KILLS · {localProtection}% PROTECTION</Text>
+            <Text style={styles.statCap}>KOs · {localProtection}% KO GUARD</Text>
           </GlassCard>
         </View>
       </View>
@@ -615,7 +615,7 @@ function SpectatorView({ state, insets, onViewResults, onExit }: any) {
           <MaterialCommunityIcons name="skull" size={38} color={colors.red} />
           <Text style={styles.specOut}>YOU'RE OUT</Text>
           {placement ? (
-            <Text style={styles.specPlace} testID="spectator-placement">Eliminated at #{placement} of 100</Text>
+            <Text style={styles.specPlace} testID="spectator-placement">Out at #{placement} of 100</Text>
           ) : null}
         </View>
 
@@ -626,11 +626,11 @@ function SpectatorView({ state, insets, onViewResults, onExit }: any) {
           </View>
           <View style={styles.specStat}>
             <Text style={[styles.specStatNum, { color: colors.amber }]}>{me?.kills ?? 0}</Text>
-            <Text style={styles.specStatCap}>YOUR KILLS</Text>
+            <Text style={styles.specStatCap}>YOUR KOs</Text>
           </View>
         </View>
 
-        <Text style={styles.specFeedTitle}>LIVE ELIMINATION FEED</Text>
+        <Text style={styles.specFeedTitle}>LIVE KO FEED</Text>
         <ScrollView style={styles.specFeed} showsVerticalScrollIndicator={false}>
           {(state.feed || []).length === 0 && (
             <Text style={styles.feedEmpty}>Awaiting the next press…</Text>
@@ -640,11 +640,11 @@ function SpectatorView({ state, insets, onViewResults, onExit }: any) {
               {f.type === "win" ? (
                 <Text style={{ color: colors.warning }}>👑 {f.victim} WINS</Text>
               ) : f.self ? (
-                <Text><Text style={{ color: colors.red }}>{f.victim}</Text> killed</Text>
+                <Text><Text style={{ color: colors.red }}>{f.victim}</Text>&apos;s press backfired</Text>
               ) : (
                 <Text>
                   <Text style={{ color: colors.amber }}>{f.killer}</Text>
-                  {" ✕ "}
+                  {" KO'd "}
                   <Text style={{ color: colors.onSurface3 }}>{f.victim}</Text>
                 </Text>
               )}
@@ -691,7 +691,7 @@ function SpectatorView({ state, insets, onViewResults, onExit }: any) {
 function makeTaunt(results: any, username: string): string {
   const p = results.placement;
   if (results.won) return `${username} was the LAST ONE ALIVE. 99 pressed. One survived. 💀`;
-  if (results.self_eliminated) return `${username} panicked and pressed their OWN doom at #${p}/100. 🤡`;
+  if (results.self_eliminated) return `${username}'s press backfired at #${p}/100. 🤡`;
   if (p <= 10) return `${username} clawed to #${p}/100 before the button blinked. 🔥`;
   if (results.kills >= 3) return `${username} dropped ${results.kills} players before falling at #${p}/100. Revenge? 😏`;
   return `${username} went out at #${p}/100. Think you'd last longer? 👀`;
@@ -857,7 +857,7 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
             color={won ? colors.warning : colors.red}
           />
           <Text style={[styles.resultTitle, { color: won ? colors.warning : colors.red }]}>
-            {won ? "YOU SURVIVED" : results.self_eliminated ? "SELF ELIMINATION" : "YOU WERE ELIMINATED"}
+            {won ? "YOU SURVIVED" : results.self_eliminated ? "BACKFIRE" : "YOU'RE OUT"}
           </Text>
           <Text style={styles.recapUser}>{username}</Text>
           <Text style={styles.resultPlace} testID="result-placement">
@@ -867,7 +867,7 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
           <View style={styles.resultStats}>
             <View style={styles.resultStat}>
               <Text style={styles.resultStatNum}>{results.kills}</Text>
-              <Text style={styles.resultStatCap}>ELIMINATIONS</Text>
+              <Text style={styles.resultStatCap}>KOs</Text>
             </View>
             <View style={styles.resultDivider} />
             <View style={styles.resultStat}>
@@ -901,7 +901,7 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
         )}
 
         {results.self_eliminated && (
-          <Text style={styles.selfElim}>You pressed the button on yourself.</Text>
+          <Text style={styles.selfElim}>Your press backfired.</Text>
         )}
 
         {completedChallenges.length > 0 && (

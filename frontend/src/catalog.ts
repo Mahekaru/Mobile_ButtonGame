@@ -27,7 +27,7 @@ export const ABILITY_META: Record<
     name: "Double Tap",
     icon: "gesture-double-tap",
     type: "offensive",
-    short: "Eliminate two",
+    short: "KO two",
   },
   hide: {
     name: "Vanish",
