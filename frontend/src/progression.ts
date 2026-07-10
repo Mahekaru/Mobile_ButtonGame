@@ -1,5 +1,5 @@
 // Client mirror of the backend progression math (for the level-up celebration).
-const MAX_LEVEL = 100;
+export const MAX_LEVEL = 50;
 
 export function xpForLevel(level: number): number {
   if (level <= 1) return 0;
@@ -22,11 +22,6 @@ const RANK_TIERS: [number, string][] = [
   [20, "Elite"],
   [25, "Master"],
   [30, "Legend"],
-  [40, "Mythic"],
-  [55, "Grandmaster"],
-  [70, "Champion"],
-  [85, "Apex"],
-  [100, "Immortal"],
 ];
 
 export function rankName(level: number): string {

@@ -5,29 +5,33 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
 import { colors, font, radius, space, type } from "@/src/theme";
 import { useAuth } from "@/src/auth";
+import { MAX_LEVEL, rankName, xpForLevel } from "@/src/progression";
 
-const RANK_TIERS = [
-  { level: 1, name: "Rookie" },
-  { level: 3, name: "Bronze" },
-  { level: 5, name: "Silver" },
-  { level: 8, name: "Gold" },
-  { level: 11, name: "Platinum" },
-  { level: 15, name: "Diamond" },
-  { level: 20, name: "Elite" },
-  { level: 25, name: "Master" },
-  { level: 30, name: "Legend" },
-  { level: 40, name: "Mythic" },
-  { level: 55, name: "Grandmaster" },
-  { level: 70, name: "Champion" },
-  { level: 85, name: "Apex" },
-  { level: 100, name: "Immortal" },
-];
-const ABILITY_UNLOCKS: Record<number, string> = {
-  2: "Unlocks: Second Chance",
-  3: "Unlocks: Lucky Press",
-  5: "Unlocks: Deflect",
+// Ability + notable cosmetic unlocks keyed by the level they become available.
+const LEVEL_UNLOCKS: Record<number, string> = {
+  2: "Unlocks: Second Chance · Aura Glow",
+  3: "Unlocks: Lucky Press · Failsafe",
+  4: "Unlocks: Vanish",
+  5: "Unlocks: Deflect · Inferno FX",
+  6: "Unlocks: Overcharge",
   7: "Unlocks: Double Tap",
+  8: "Unlocks: Adrenaline · Overload FX",
+  10: "Unlocks: Steady Hand · Neon Pulse",
 };
+
+// Every level 1..MAX_LEVEL, with the XP needed to reach it, its rank tier,
+// whether that level starts a new tier, and any unlock text.
+const LEVELS = Array.from({ length: MAX_LEVEL }, (_, i) => {
+  const level = i + 1;
+  const rank = rankName(level);
+  return {
+    level,
+    rank,
+    isTierStart: level === 1 || rankName(level - 1) !== rank,
+    xpNeeded: level <= 1 ? 0 : xpForLevel(level) - xpForLevel(level - 1),
+    unlock: LEVEL_UNLOCKS[level],
+  };
+});
 
 export default function RankScreen() {
   const insets = useSafeAreaInsets();
@@ -62,25 +66,43 @@ export default function RankScreen() {
         </View>
 
         <Text style={styles.sectionTitle}>PROGRESSION ROADMAP</Text>
-        {RANK_TIERS.map((tier) => {
-          const reached = prog.level >= tier.level;
-          const isCurrent = prog.rank === tier.name;
+        {LEVELS.map((lv) => {
+          const reached = prog.level >= lv.level;
+          const isCurrent = prog.level === lv.level;
           return (
-            <View key={tier.level} style={[styles.tierRow, isCurrent && styles.tierCurrent]}>
-              <View style={[styles.tierBadge, reached && { backgroundColor: colors.redDeep }]}>
-                <MaterialCommunityIcons
-                  name={reached ? "medal" : "lock"}
-                  size={18}
-                  color={reached ? colors.amber : colors.muted}
-                />
+            <View
+              key={lv.level}
+              style={[
+                styles.tierRow,
+                lv.isTierStart && styles.tierStartRow,
+                isCurrent && styles.tierCurrent,
+              ]}
+            >
+              <View
+                style={[
+                  styles.tierBadge,
+                  reached && { backgroundColor: colors.redDeep },
+                  isCurrent && { backgroundColor: colors.amber },
+                ]}
+              >
+                <Text style={[styles.badgeNum, { color: isCurrent ? colors.surface : reached ? colors.amber : colors.muted }]}>
+                  {lv.level}
+                </Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.tierName, !reached && { color: colors.muted }]}>{tier.name}</Text>
-                {ABILITY_UNLOCKS[tier.level] && (
-                  <Text style={styles.tierUnlock}>{ABILITY_UNLOCKS[tier.level]}</Text>
+                <Text style={[styles.tierName, !reached && { color: colors.muted }]}>
+                  Level {lv.level}
+                  {lv.isTierStart ? `  ·  ${lv.rank}` : ""}
+                </Text>
+                {lv.unlock ? (
+                  <Text style={styles.tierUnlock}>{lv.unlock}</Text>
+                ) : (
+                  <Text style={styles.tierRankSub}>{lv.rank}</Text>
                 )}
               </View>
-              <Text style={[styles.tierLevel, reached && { color: colors.amber }]}>LV {tier.level}</Text>
+              <Text style={[styles.tierLevel, reached && { color: colors.amber }]}>
+                {lv.level === 1 ? "START" : `${lv.xpNeeded.toLocaleString()} XP`}
+              </Text>
             </View>
           );
         })}
@@ -120,6 +142,7 @@ const styles = StyleSheet.create({
     marginBottom: space.sm,
   },
   tierCurrent: { borderColor: colors.amber },
+  tierStartRow: { borderColor: colors.redDeep, backgroundColor: colors.surface },
   tierBadge: {
     width: 38,
     height: 38,
@@ -128,7 +151,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  badgeNum: { fontFamily: font.displaySemi, fontSize: type.base, color: colors.muted },
   tierName: { fontFamily: font.semi, fontSize: type.lg, color: colors.onSurface },
   tierUnlock: { fontFamily: font.medium, fontSize: type.sm, color: colors.amber, marginTop: 1 },
-  tierLevel: { fontFamily: font.displaySemi, fontSize: type.lg, color: colors.muted },
+  tierRankSub: { fontFamily: font.medium, fontSize: type.sm, color: colors.muted, marginTop: 1 },
+  tierLevel: { fontFamily: font.displaySemi, fontSize: type.base, color: colors.muted },
 });
