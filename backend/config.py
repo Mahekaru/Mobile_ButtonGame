@@ -245,6 +245,7 @@ RANK_TIERS = [
     (20, "Elite"),
     (25, "Master"),
     (30, "Legend"),
+    (50, "Immortal"),
 ]
 
 

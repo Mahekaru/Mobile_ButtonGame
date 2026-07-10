@@ -22,6 +22,7 @@ const RANK_TIERS: [number, string][] = [
   [20, "Elite"],
   [25, "Master"],
   [30, "Legend"],
+  [50, "Immortal"],
 ];
 
 export function rankName(level: number): string {

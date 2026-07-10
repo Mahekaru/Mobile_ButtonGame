@@ -116,7 +116,7 @@ Multiplayer battle-royale game around a single shared button. 100 players; any l
 
 ## Update — Level cap 1–50 with full per-level roadmap (2026-06)
 - MAX_LEVEL kept at 50 (reverted the brief 100 experiment). XP curve unchanged: cumulative 100·(n-1)·n → per-level cost 200·(n-1) (standard RPG: early levels quick, later progressively harder; L2=200 … L50=+9,800, cumulative 245,000).
-- Rank tiers restored to Rookie→Legend (1–30). Rank roadmap screen (rank.tsx) now lists EVERY level 1–50 (no skips): level badge, rank tier shown at tier-starts, XP needed to reach that level, and ability/cosmetic unlock callouts. Reached/current levels highlighted.
+- Rank tiers restored to Rookie→Legend (1–30), with a final milestone **Immortal at Level 50**. Rank roadmap screen (rank.tsx) now lists EVERY level 1–50 (no skips): level badge, rank tier shown at tier-starts, XP needed to reach that level, and ability/cosmetic unlock callouts. Reached/current levels highlighted.
 
 ## Known residual (low priority)
 - RN-Web warning `props.pointerEvents is deprecated` at match/[id].tsx reveal banner (web-only cosmetic).
