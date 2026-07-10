@@ -433,7 +433,7 @@ function LobbyView({ state, insets, onCancel, onStart }: any) {
           <Animated.View style={[styles.lobbyFill, fillStyle]} />
         </View>
         <Text style={styles.lobbyCount} testID="lobby-loaded">
-          {progress >= 0.99 ? "ARENA READY" : `LOADING OPERATIVES · ${loaded} / ${total}`}
+          {progress >= 0.99 ? "ARENA READY" : `LOADING PLAYERS · ${loaded} / ${total}`}
         </Text>
 
         <ScrollView style={{ marginTop: space.xl, width: "100%" }} showsVerticalScrollIndicator={false}>
@@ -684,7 +684,7 @@ function makeTaunt(results: any, username: string): string {
   if (results.won) return `${username} was the LAST ONE ALIVE. 99 pressed. One survived. 💀`;
   if (results.self_eliminated) return `${username} panicked and pressed their OWN doom at #${p}/100. 🤡`;
   if (p <= 10) return `${username} clawed to #${p}/100 before the button blinked. 🔥`;
-  if (results.kills >= 3) return `${username} dropped ${results.kills} operatives before falling at #${p}/100. Revenge? 😏`;
+  if (results.kills >= 3) return `${username} dropped ${results.kills} players before falling at #${p}/100. Revenge? 😏`;
   return `${username} went out at #${p}/100. Think you'd last longer? 👀`;
 }
 

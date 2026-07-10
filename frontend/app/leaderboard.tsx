@@ -149,7 +149,7 @@ export default function LeaderboardScreen() {
         <View style={styles.center} testID="leaderboard-empty">
           <MaterialCommunityIcons name="trophy-outline" size={48} color={colors.muted} />
           <Text style={styles.emptyText}>
-            {scope === "friends" ? "Add friends to compare ranks." : "No operatives ranked yet."}
+            {scope === "friends" ? "Add friends to compare ranks." : "No players ranked yet."}
           </Text>
         </View>
       ) : (

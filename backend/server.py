@@ -416,7 +416,7 @@ async def add_friend(body: FriendAddBody, user: dict = Depends(get_current_user)
         raise HTTPException(status_code=400, detail="That's your own code")
     target = await db.users.find_one({"friend_code": code})
     if not target:
-        raise HTTPException(status_code=404, detail="No operative with that code")
+        raise HTTPException(status_code=404, detail="No player with that code")
     if target["_id"] in user.get("friends", []):
         raise HTTPException(status_code=400, detail="Already friends")
     # mutual add

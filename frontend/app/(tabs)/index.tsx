@@ -178,7 +178,7 @@ export default function PlayScreen() {
         {/* Header: profile + rank */}
         <View style={styles.header}>
           <Pressable style={{ flex: 1 }} testID="edit-name-btn" onPress={openNameSheet}>
-            <Text style={styles.hello}>OPERATIVE</Text>
+            <Text style={styles.hello}>PLAYER</Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
               <Text style={styles.username} numberOfLines={1} testID="menu-username">
                 {user?.username || "Player"}

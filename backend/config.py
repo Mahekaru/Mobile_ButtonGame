@@ -350,9 +350,9 @@ AD_COOLDOWN_SEC = 180     # no bonus ad for 3 minutes after finishing one
 CHALLENGE_POOL = [
     {"id": "win_one", "name": "Sole Survivor", "desc": "Win a match",
      "icon": "trophy", "metric": "wins", "goal": 1, "reward": 250},
-    {"id": "elim_five", "name": "Executioner", "desc": "Eliminate 5 operatives",
+    {"id": "elim_five", "name": "Executioner", "desc": "Eliminate 5 players",
      "icon": "skull", "metric": "eliminations", "goal": 5, "reward": 150},
-    {"id": "elim_ten", "name": "Rampage", "desc": "Eliminate 10 operatives",
+    {"id": "elim_ten", "name": "Rampage", "desc": "Eliminate 10 players",
      "icon": "skull-crossbones", "metric": "eliminations", "goal": 10, "reward": 260},
     {"id": "play_three", "name": "Warm Up", "desc": "Play 3 matches",
      "icon": "sword-cross", "metric": "matches", "goal": 3, "reward": 100},
