@@ -19,15 +19,15 @@ GAME_CONFIG = {
     "lucky_press_multiplier": 0.75,  # -25% self risk
 }
 
-# Kill-protection: even spread that caps at 10%. Maps kills -> protection fraction.
-PROTECTION_TABLE = {0: 0.0, 1: 0.02, 2: 0.04, 3: 0.06, 4: 0.08}
-PROTECTION_CAP = 0.10  # 5+ kills
+# Kill-protection: linear spread that reaches its 15% cap at 10 kills
+# (+1.5% per kill). Maps kills -> protection fraction.
+PROTECTION_PER_KILL = 0.015
+PROTECTION_CAP = 0.15      # reached at 10 kills
+PROTECTION_MAX_KILLS = 10
 
 
 def protection_for(kills: int) -> float:
-    if kills >= 5:
-        return PROTECTION_CAP
-    return PROTECTION_TABLE.get(kills, 0.0)
+    return min(PROTECTION_CAP, max(0, kills) * PROTECTION_PER_KILL)
 
 
 # ---------------------------------------------------------------------------
