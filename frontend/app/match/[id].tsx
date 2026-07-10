@@ -1037,7 +1037,7 @@ function AdOverlay({ mode, reward, onSkip, onClaim, onProceed }: any) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   hudRow: { flexDirection: "row", paddingHorizontal: space.md, gap: space.sm },
-  feedCard: { flex: 1.4 },
+  feedCard: { flex: 1.4, height: 140 },
   feedTitle: {
     fontFamily: font.semi,
     fontSize: 10,
@@ -1047,7 +1047,7 @@ const styles = StyleSheet.create({
   },
   feedEmpty: { fontFamily: font.regular, fontSize: type.sm, color: colors.muted },
   feedLine: { fontFamily: font.medium, fontSize: type.sm, marginBottom: 3, color: colors.onSurface2 },
-  statsCol: { flex: 1, gap: space.sm },
+  statsCol: { flex: 1, gap: space.sm, height: 140 },
   statCard: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: space.sm },
   statNum: { fontFamily: font.displayBold, fontSize: 34, color: colors.onSurface, lineHeight: 38 },
   statCap: { fontFamily: font.medium, fontSize: 9, color: colors.muted, letterSpacing: 0.5 },

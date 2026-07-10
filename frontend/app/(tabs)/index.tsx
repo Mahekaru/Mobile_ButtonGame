@@ -12,6 +12,7 @@ import { colors, font, radius, space, type, SKIN_COLORS } from "@/src/theme";
 import { useAuth } from "@/src/auth";
 import { api, ApiError } from "@/src/api";
 import { PrimaryButton, SkinSurface } from "@/src/ui";
+import { ButtonFX, PressBurst } from "@/src/fx";
 
 const BG =
   "https://images.unsplash.com/photo-1642369717514-f73f300e7d32?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDZ8MHwxfHNlYXJjaHwyfHxkYXJrJTIwcmVkJTIwYWJzdHJhY3QlMjB0ZW5zaW9uJTIwdGV4dHVyZSUyMGJhY2tncm91bmR8ZW58MHx8fHwxNzgzNTY1OTQyfDA&ixlib=rb-4.1.0&q=85";
@@ -45,6 +46,7 @@ export default function PlayScreen() {
   const [partyCode, setPartyCode] = useState("");
   const [partyBusy, setPartyBusy] = useState(false);
   const [partyErr, setPartyErr] = useState<string | null>(null);
+  const [burstKey, setBurstKey] = useState(0);
 
   const loadRewards = useCallback(async () => {
     try {
@@ -71,6 +73,12 @@ export default function PlayScreen() {
   const equippedAbility = user?.equipped_ability;
   const skinId = user?.equipped_cosmetics?.button_skin || "classic";
   const skinColor = SKIN_COLORS[skinId] || colors.red;
+  const buttonFx = user?.equipped_cosmetics?.button_fx || "none";
+
+  const previewPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setBurstKey((k) => k + 1);
+  };
 
   const claim = async () => {
     if (claiming) return;
@@ -272,15 +280,17 @@ export default function PlayScreen() {
           </View>
         </Pressable>
 
-        {/* Center: live equipped-skin preview */}
+        {/* Center: live equipped-skin + effects preview (tap to preview) */}
         <View style={styles.centerArt}>
-          <View style={styles.ringOuter}>
+          <Pressable style={styles.ringOuter} testID="preview-button" onPress={previewPress}>
+            <ButtonFX type={buttonFx} size={200} />
+            {burstKey > 0 && <PressBurst key={burstKey} type={buttonFx} color={skinColor} size={200} />}
             <SkinSurface skinId={skinId} color={skinColor} size={150} radius={75}>
               <MaterialCommunityIcons name="gesture-tap-button" size={40} color="rgba(255,255,255,0.9)" />
               <Text style={styles.previewPress}>PRESS</Text>
             </SkinSurface>
-          </View>
-          <Text style={styles.artCaption}>YOUR BUTTON</Text>
+          </Pressable>
+          <Text style={styles.artCaption}>TAP TO PREVIEW</Text>
         </View>
 
         {/* Equipped ability */}
