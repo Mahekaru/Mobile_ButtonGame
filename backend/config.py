@@ -19,9 +19,9 @@ GAME_CONFIG = {
     "lucky_press_multiplier": 0.75,  # -25% self risk
 }
 
-# Kill-protection: diminishing returns. Maps kills -> protection fraction.
-PROTECTION_TABLE = {0: 0.0, 1: 0.05, 2: 0.09, 3: 0.12, 4: 0.14}
-PROTECTION_CAP = 0.15  # 5+ kills
+# Kill-protection: even spread that caps at 10%. Maps kills -> protection fraction.
+PROTECTION_TABLE = {0: 0.0, 1: 0.02, 2: 0.04, 3: 0.06, 4: 0.08}
+PROTECTION_CAP = 0.10  # 5+ kills
 
 
 def protection_for(kills: int) -> float:
