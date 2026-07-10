@@ -18,6 +18,17 @@ from typing import Dict, List, Optional
 import challenges as CH
 from config import (
     ABILITY_BY_ID,
+    BOT_BURST_CHANCE,
+    BOT_BURST_RANGE,
+    BOT_CASCADE_CHANCE,
+    BOT_CASCADE_RANGE,
+    BOT_EARLY_JITTER,
+    BOT_EXCITED_DANGER,
+    BOT_LULL_CHANCE,
+    BOT_PANIC_CHANCE,
+    BOT_PANIC_FREEZE_RANGE,
+    BOT_PAUSE_RANGE,
+    BOT_TOPK,
     DEFENSIVE_ABILITIES,
     FRIEND_KO_BONUS,
     GAME_CONFIG,
@@ -56,6 +67,8 @@ class Player:
         self.placement: Optional[int] = None
         self.self_eliminated = False
         self.threshold = roll_threshold(personality) if personality else 0.0
+        # bot pacing: won't act again until this ts (bursts + random pauses)
+        self.pause_until = 0.0
         # social loop
         self.friends: set = friends or set()
         self.rivals: set = rivals or set()
@@ -337,6 +350,64 @@ class Match:
                                  "victim_icon": winner.icon, "killer": None, "self": False})
                 self._schedule_persist(winner)
 
+    # ---- bot AI ------------------------------------------------------------
+    def _bots_tick(self):
+        """Advance erratic, human-like bot behaviour for one tick.
+
+        Caller MUST hold self.lock. Bots don't press at a constant rate — the
+        field has collective *lulls* (everyone hesitates) and *cascades* (panic
+        spreads to several at once). An individual bot presses in short bursts
+        then takes a small random pause, and reacts to its Danger Meter: when
+        it's nearly full it either gets excited (rapid burst) or panics and
+        freezes entirely for a few seconds.
+        """
+        t = now()
+        base = GAME_CONFIG["danger_base"]
+        cap = GAME_CONFIG["danger_cap"]
+
+        # Bots currently off their personal cooldown (i.e. not mid-pause).
+        candidates = [p for p in self.players.values()
+                      if p.is_bot and p.alive and t >= p.pause_until]
+        if not candidates:
+            return
+
+        # Match-level mood — hesitation lulls and panic cascades.
+        roll = random.random()
+        if roll < BOT_LULL_CHANCE:
+            return
+        actors_n = random.randint(*BOT_CASCADE_RANGE) if roll > (1.0 - BOT_CASCADE_CHANCE) else 1
+
+        # Choose actors randomly among the most "urgent" bots (danger past their
+        # personality threshold) so the timing stays unpredictable.
+        candidates.sort(key=lambda p: self.danger_for(p) - p.threshold, reverse=True)
+        pool = candidates[:max(actors_n, BOT_TOPK)]
+        random.shuffle(pool)
+
+        acted = 0
+        for b in pool:
+            if acted >= actors_n:
+                break
+            d = self.danger_for(b)
+            # Below threshold a bot usually keeps waiting (occasional jitter).
+            if d < b.threshold and random.random() > BOT_EARLY_JITTER:
+                continue
+            dr = (d - base) / max(1.0, cap - base)
+            excited = dr >= BOT_EXCITED_DANGER
+            if excited and random.random() < BOT_PANIC_CHANCE:
+                # Nerves win — freeze up entirely for a bit.
+                b.pause_until = t + random.uniform(*BOT_PANIC_FREEZE_RANGE)
+                continue
+            # Excited bots sometimes hammer a quick burst; otherwise one tap.
+            burst = (random.randint(*BOT_BURST_RANGE)
+                     if excited and random.random() < BOT_BURST_CHANCE else 1)
+            for _ in range(burst):
+                if not b.alive or self.phase != "active":
+                    break
+                self.resolve_press(b.pid, use_ability=False)
+            if b.alive:
+                b.pause_until = t + random.uniform(*BOT_PAUSE_RANGE)
+            acted += 1
+
     # ---- loop --------------------------------------------------------------
     async def run_loop(self):
         # Wait out the lobby countdown, allowing humans to gather.
@@ -361,14 +432,7 @@ class Match:
             async with self.lock:
                 if self.phase != "active":
                     break
-                # A bot presses when ITS OWN personal danger crosses its threshold.
-                ready = [p for p in self.players.values()
-                         if p.is_bot and p.alive and self.danger_for(p) >= p.threshold]
-                if ready:
-                    # most-urgent bot (highest personal danger) acts first
-                    ready.sort(key=lambda p: self.danger_for(p) - p.threshold, reverse=True)
-                    presser = ready[0] if random.random() < 0.8 else random.choice(ready)
-                    self.resolve_press(presser.pid, use_ability=False)
+                self._bots_tick()
             await self.broadcast()
 
         # Match has ended — push the final state (results/spectator recap).

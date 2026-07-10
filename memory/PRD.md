@@ -117,3 +117,9 @@ Multiplayer battle-royale game around a single shared button. 100 players; any l
 ## Known residual (low priority)
 - RN-Web warning `props.pointerEvents is deprecated` at match/[id].tsx reveal banner (web-only cosmetic).
 - IBM Plex TTFs fail to decode via preview proxy (web-only; native builds load fine).
+
+## Update — Erratic human-like bot AI + protection rework (2026-07)
+- **Bot AI rewrite** (game.py `_bots_tick`, config BOT_* tunables): replaced the constant "one ready bot per tick" model with human-like pacing — match-level LULLS (30% ticks nobody presses) and CASCADES (panic spreads to 2-4 bots at once); each bot takes a random pause (1.0-3.6s) after acting; danger reactions — when personal danger is "nearly full" (>=75% of cap) a bot either gets EXCITED (rapid burst of 2-3 presses) or PANICS and FREEZES (2.5-6s). Actor chosen randomly among the 5 most-urgent bots for unpredictability. Verified: all-bot field lasts ~1.25 min avg with visible cascades + lulls; live match 100→79 in ~20s with variable rate.
+- **Kill-protection**: now a linear spread reaching the 15% cap at 10 kills (+1.5%/kill) — config PROTECTION_PER_KILL=0.015, PROTECTION_CAP=0.15.
+- **HUD copy**: match HUD now reads "KILLS · X% PROTECTION" (was cryptic "PROT").
+- **Spectator "Leave to menu"** now goes through the same mandatory-ad gate as Results "Continue" (shared useMandatoryAdExit hook in match/[id].tsx).

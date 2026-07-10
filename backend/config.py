@@ -48,6 +48,24 @@ def roll_threshold(personality: str) -> float:
     return random.uniform(lo, hi)
 
 
+# ---------------------------------------------------------------------------
+# Bot behaviour — erratic, human-like pacing (bursts + random pauses + nerves).
+# Evaluated every tick; keeps the average press rate close to one actor per
+# tick while adding lulls, panic cascades, excited bursts and freezes.
+# ---------------------------------------------------------------------------
+BOT_LULL_CHANCE = 0.30            # tick where everyone hesitates (no press)
+BOT_CASCADE_CHANCE = 0.18         # tick where panic spreads (several bots act)
+BOT_CASCADE_RANGE = (2, 4)        # how many bots act during a cascade
+BOT_PAUSE_RANGE = (1.0, 3.6)      # random pause a bot takes after acting (sec)
+BOT_PANIC_FREEZE_RANGE = (2.5, 6.0)  # how long a panicking bot freezes (sec)
+BOT_PANIC_CHANCE = 0.20           # chance a near-full-danger bot freezes instead
+BOT_EXCITED_DANGER = 0.75         # danger ratio (of cap) that counts as "nearly full"
+BOT_BURST_RANGE = (2, 3)          # extra rapid presses when excited
+BOT_BURST_CHANCE = 0.6            # chance an excited bot fires a burst
+BOT_EARLY_JITTER = 0.06           # chance a below-threshold bot presses anyway
+BOT_TOPK = 5                      # actor is chosen randomly among K most urgent
+
+
 BOT_FIRST = [
     "Ash", "Rune", "Vex", "Nova", "Kilo", "Zed", "Onyx", "Fury", "Jinx", "Rex",
     "Blaze", "Ghost", "Crank", "Pyro", "Dagger", "Echo", "Riot", "Hex", "Sable", "Talon",
