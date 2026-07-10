@@ -152,7 +152,7 @@ export default function MatchScreen() {
       text = "ABILITY SAVED YOU!";
       tone = colors.success;
     } else if (outcome.self_death) {
-      text = "SELF-ELIMINATION";
+      text = "SELF ELIMINATION";
       tone = colors.red;
     } else if (outcome.victims.length > 1) {
       text = `DOUBLE KILL: ${outcome.victims.join(" & ")}`;
@@ -857,7 +857,7 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
             color={won ? colors.warning : colors.red}
           />
           <Text style={[styles.resultTitle, { color: won ? colors.warning : colors.red }]}>
-            {won ? "YOU SURVIVED" : results.self_eliminated ? "SELF-ELIMINATION" : "YOU WERE ELIMINATED"}
+            {won ? "YOU SURVIVED" : results.self_eliminated ? "SELF ELIMINATION" : "YOU WERE ELIMINATED"}
           </Text>
           <Text style={styles.recapUser}>{username}</Text>
           <Text style={styles.resultPlace} testID="result-placement">
