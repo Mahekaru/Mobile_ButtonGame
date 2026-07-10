@@ -325,7 +325,7 @@ export default function PlayScreen() {
           style={({ pressed }) => [styles.findBtn, { opacity: pressed ? 0.9 : 1 }]}
         >
           <LinearGradient
-            colors={[colors.red, "#C41F16"]}
+            colors={["#1FB257", "#0C7A38"]}
             style={StyleSheet.absoluteFill}
           />
           <MaterialCommunityIcons
