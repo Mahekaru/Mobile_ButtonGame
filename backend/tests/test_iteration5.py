@@ -7,7 +7,7 @@ import time
 import pytest
 import requests
 
-BASE = "https://button-battle-4.preview.emergentagent.com/api"
+BASE = "https://panic-ranks.preview.emergentagent.com/api"
 
 
 def _guest(name_prefix="TEST_Iter5"):

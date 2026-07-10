@@ -24,7 +24,7 @@ import uuid
 import pytest
 import requests
 
-BASE_URL = os.environ.get("EXPO_BACKEND_URL") or "https://button-battle-4.preview.emergentagent.com"
+BASE_URL = os.environ.get("EXPO_BACKEND_URL") or "https://panic-ranks.preview.emergentagent.com"
 BASE_URL = BASE_URL.rstrip("/")
 API = f"{BASE_URL}/api"
 
