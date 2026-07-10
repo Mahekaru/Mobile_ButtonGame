@@ -617,7 +617,34 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
   const [mandatoryDue, setMandatoryDue] = useState(false);
   const [offerDoubleXp, setOfferDoubleXp] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [completedChallenges, setCompletedChallenges] = useState<{ id: string; name: string; reward: number }[]>([]);
   const { user } = useAuth();
+  const router = useRouter();
+
+  // Surface any daily challenges this match just completed (persisted async
+  // by the server) — retry once to cover the write race for winners.
+  useEffect(() => {
+    let active = true;
+    let tries = 0;
+    const poll = async () => {
+      try {
+        const res = await api.recentChallenges();
+        if (!active) return;
+        if (res.challenges.length > 0) {
+          setCompletedChallenges(res.challenges);
+        } else if (tries < 1) {
+          tries += 1;
+          setTimeout(poll, 2000);
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+    poll();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const claimAd = async () => {
     try {
@@ -776,6 +803,28 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
 
         {results.self_eliminated && (
           <Text style={styles.selfElim}>You pressed the button on yourself.</Text>
+        )}
+
+        {completedChallenges.length > 0 && (
+          <Animated.View entering={FadeInDown.springify().damping(14)} testID="challenge-toast">
+            <Pressable style={styles.challengeToast} onPress={() => router.push("/challenges")}>
+              <View style={styles.challengeToastIcon}>
+                <MaterialCommunityIcons name="target" size={22} color={colors.surface} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.challengeToastTitle}>
+                  {completedChallenges.length === 1
+                    ? "CHALLENGE COMPLETE!"
+                    : `${completedChallenges.length} CHALLENGES COMPLETE!`}
+                </Text>
+                <Text style={styles.challengeToastSub} numberOfLines={1}>
+                  {completedChallenges.map((c) => c.name).join(" · ")} · tap to claim +
+                  {completedChallenges.reduce((s, c) => s + c.reward, 0)} XP
+                </Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={22} color={colors.amber} />
+            </Pressable>
+          </Animated.View>
         )}
 
         <Pressable testID="share-recap-btn" onPress={share} style={styles.shareBtn}>
@@ -1092,6 +1141,27 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   selfElim: { fontFamily: font.regular, fontSize: type.base, color: colors.red, marginTop: space.lg, textAlign: "center" },
+  challengeToast: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.md,
+    backgroundColor: "#241A00",
+    borderWidth: 1,
+    borderColor: colors.amber,
+    borderRadius: radius.lg,
+    padding: space.md,
+    marginTop: space.lg,
+  },
+  challengeToastIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    backgroundColor: colors.amber,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  challengeToastTitle: { fontFamily: font.displaySemi, fontSize: type.lg, color: colors.amber, letterSpacing: 0.5 },
+  challengeToastSub: { fontFamily: font.regular, fontSize: type.sm, color: colors.onSurface3, marginTop: 1 },
   shareBtn: {
     flexDirection: "row",
     alignItems: "center",

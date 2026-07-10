@@ -9,21 +9,34 @@ import { colors, font, radius, space, type } from "@/src/theme";
 import { api } from "@/src/api";
 
 type Scope = "global" | "friends";
+type Period = "season" | "alltime";
+
+function resetLabel(seconds: number): string {
+  if (!seconds || seconds <= 0) return "resetting…";
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  if (d > 0) return `Resets in ${d}d ${h}h`;
+  const m = Math.floor((seconds % 3600) / 60);
+  return `Resets in ${h}h ${m}m`;
+}
 
 export default function LeaderboardScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [scope, setScope] = useState<Scope>("global");
+  const [period, setPeriod] = useState<Period>("season");
   const [rows, setRows] = useState<any[]>([]);
   const [myRank, setMyRank] = useState<number | null>(null);
+  const [resetSeconds, setResetSeconds] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async (s: Scope) => {
+  const load = useCallback(async (s: Scope, p: Period) => {
     setLoading(true);
     try {
-      const res = await api.leaderboard(s);
+      const res = await api.leaderboard(s, p);
       setRows(res.rows);
       setMyRank(res.my_rank);
+      setResetSeconds(res.reset_seconds);
     } catch {
       setRows([]);
       setMyRank(null);
@@ -34,14 +47,19 @@ export default function LeaderboardScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      load(scope);
-    }, [load, scope]),
+      load(scope, period);
+    }, [load, scope, period]),
   );
 
   const switchScope = (s: Scope) => {
     if (s === scope) return;
     Haptics.selectionAsync();
     setScope(s);
+  };
+  const switchPeriod = (p: Period) => {
+    if (p === period) return;
+    Haptics.selectionAsync();
+    setPeriod(p);
   };
 
   const medal = (rank: number) => {
@@ -78,12 +96,50 @@ export default function LeaderboardScreen() {
         </Pressable>
       </View>
 
-      {myRank != null && (
+      <View style={styles.periodRow}>
+        <Pressable
+          testID="lb-period-season"
+          onPress={() => switchPeriod("season")}
+          style={[styles.periodTab, period === "season" && styles.periodTabActive]}
+        >
+          <MaterialCommunityIcons
+            name="calendar-week"
+            size={14}
+            color={period === "season" ? colors.amber : colors.muted}
+          />
+          <Text style={[styles.periodText, period === "season" && styles.periodTextActive]}>THIS WEEK</Text>
+        </Pressable>
+        <Pressable
+          testID="lb-period-alltime"
+          onPress={() => switchPeriod("alltime")}
+          style={[styles.periodTab, period === "alltime" && styles.periodTabActive]}
+        >
+          <MaterialCommunityIcons
+            name="infinity"
+            size={14}
+            color={period === "alltime" ? colors.amber : colors.muted}
+          />
+          <Text style={[styles.periodText, period === "alltime" && styles.periodTextActive]}>ALL-TIME</Text>
+        </Pressable>
+      </View>
+
+      {period === "season" && (
+        <Text style={styles.resetLabel} testID="season-reset">
+          🏁 {resetLabel(resetSeconds)}
+        </Text>
+      )}
+
+      {myRank != null ? (
         <View style={styles.myRankChip} testID="my-rank-chip">
           <MaterialCommunityIcons name="account-star" size={16} color={colors.amber} />
           <Text style={styles.myRankText}>YOUR RANK · #{myRank}</Text>
         </View>
-      )}
+      ) : period === "season" ? (
+        <View style={styles.myRankChip} testID="my-rank-unranked">
+          <MaterialCommunityIcons name="account-off" size={16} color={colors.muted} />
+          <Text style={[styles.myRankText, { color: colors.muted }]}>PLAY TO RANK THIS WEEK</Text>
+        </View>
+      ) : null}
 
       {loading ? (
         <View style={styles.center}>
@@ -123,7 +179,7 @@ export default function LeaderboardScreen() {
                   {r.rank_name} · LVL {r.level} · {r.wins} wins
                 </Text>
               </View>
-              <Text style={styles.rowXp}>{r.xp.toLocaleString()} XP</Text>
+              <Text style={styles.rowXp}>{r.score.toLocaleString()} XP</Text>
             </View>
           ))}
         </ScrollView>
@@ -155,6 +211,33 @@ const styles = StyleSheet.create({
   tabActive: { backgroundColor: colors.red },
   tabText: { fontFamily: font.semi, fontSize: type.base, color: colors.muted, letterSpacing: 1 },
   tabTextActive: { color: "#fff" },
+  periodRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: space.sm,
+    marginTop: space.md,
+  },
+  periodTab: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: space.md,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface2,
+  },
+  periodTabActive: { borderColor: colors.amber, backgroundColor: "#241A00" },
+  periodText: { fontFamily: font.semi, fontSize: type.sm, color: colors.muted, letterSpacing: 0.5 },
+  periodTextActive: { color: colors.amber },
+  resetLabel: {
+    fontFamily: font.medium,
+    fontSize: type.sm,
+    color: colors.onSurface3,
+    textAlign: "center",
+    marginTop: space.sm,
+  },
   myRankChip: {
     flexDirection: "row",
     alignItems: "center",

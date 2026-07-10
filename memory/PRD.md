@@ -123,3 +123,8 @@ Multiplayer battle-royale game around a single shared button. 100 players; any l
 - **Kill-protection**: now a linear spread reaching the 15% cap at 10 kills (+1.5%/kill) — config PROTECTION_PER_KILL=0.015, PROTECTION_CAP=0.15.
 - **HUD copy**: match HUD now reads "KILLS · X% PROTECTION" (was cryptic "PROT").
 - **Spectator "Leave to menu"** now goes through the same mandatory-ad gate as Results "Continue" (shared useMandatoryAdExit hook in match/[id].tsx).
+
+## Update — Late-game tension + Season leaderboard + Challenge toast (2026-07)
+- **Late-game tension**: LATE_TENSION 2.2→3.2; new FINAL_STRETCH surge (eff_slope ×1.7 when ≤8 alive) so end-game danger climbs sharply. Client auto-reflects via state.config.slope.
+- **Season/weekly leaderboard**: seasons.py (ISO-week id, Monday-00:00-UTC reset). Users track season_xp (lazy reset on next award via season_award_ops); credited in persist_player + rewards/ads/challenge claims. GET /api/leaderboard?scope=&period=season|alltime — season filters season_id==current, returns reset_seconds + season_id. Leaderboard screen: THIS WEEK / ALL-TIME toggle, "Resets in Xd Yh" label, "PLAY TO RANK THIS WEEK" when unranked. Lifetime level/rank unaffected.
+- **Challenge-complete toast**: challenges.apply_progress now returns newly-completed items; persist_player stores them in user.last_match_challenges. GET /api/challenges/recent. ResultsView shows an amber "CHALLENGE COMPLETE!" toast (retry-once for winner write race) that taps through to /challenges. Verified end-to-end via seeded session.

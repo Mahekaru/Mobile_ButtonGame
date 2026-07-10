@@ -106,10 +106,14 @@ export const api = {
       method: "POST",
       body: { category, item_id },
     }),
-  leaderboard: (scope: "global" | "friends") =>
-    request<{ scope: string; rows: any[]; my_rank: number | null }>(`/leaderboard?scope=${scope}`),
+  leaderboard: (scope: "global" | "friends", period: "season" | "alltime") =>
+    request<{ scope: string; period: string; rows: any[]; my_rank: number | null; season_id: string; reset_seconds: number }>(
+      `/leaderboard?scope=${scope}&period=${period}`,
+    ),
   challenges: () =>
     request<{ date: string; challenges: any[]; completed: number; total: number }>("/challenges"),
+  recentChallenges: () =>
+    request<{ challenges: { id: string; name: string; reward: number }[] }>("/challenges/recent"),
   claimChallenge: (id: string) =>
     request<{ claimed: number; user: any; challenges: any }>(`/challenges/claim/${id}`, {
       method: "POST",

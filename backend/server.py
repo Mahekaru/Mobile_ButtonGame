@@ -18,6 +18,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 import challenges as CH
 import config as C
+import seasons as S
 from game import MatchManager
 
 ROOT_DIR = Path(__file__).parent
@@ -172,6 +173,9 @@ def _new_user_doc(user_id: str, username: str, friend_code: str, email=None, pas
         "last_daily_claim": None,
         "daily_streak": 0,
         "daily_challenges": None,
+        "last_match_challenges": [],
+        "season_id": S.current_season_id(),
+        "season_xp": 0,
         "last_ad_at": None,
         "last_match_xp": 0,
         "last_match_id": None,
@@ -284,6 +288,7 @@ async def ads_reward(user: dict = Depends(get_current_user)):
                   "ad_claimed_for": user.get("last_match_id"),
                   "level": C.level_for_xp(new_xp)}},
     )
+    await db.users.update_one({"_id": user["_id"]}, S.season_award_ops(user, reward))
     updated = await db.users.find_one({"_id": user["_id"]})
     return {"rewarded": reward, "user": public_user(updated)}
 
@@ -346,6 +351,7 @@ async def rewards_claim(user: dict = Depends(get_current_user)):
          "$set": {"last_daily_claim": today, "daily_streak": new_streak,
                   "level": C.level_for_xp(new_xp)}},
     )
+    await db.users.update_one({"_id": user["_id"]}, S.season_award_ops(user, reward))
     updated = await db.users.find_one({"_id": user["_id"]})
     return {
         "claimed": reward,
@@ -474,14 +480,20 @@ async def equip_cosmetic(body: EquipCosmeticBody, user: dict = Depends(get_curre
 # Leaderboards
 # ---------------------------------------------------------------------------
 @api_router.get("/leaderboard")
-async def leaderboard(scope: str = "global", user: dict = Depends(get_current_user)):
-    query = {}
+async def leaderboard(scope: str = "global", period: str = "season",
+                      user: dict = Depends(get_current_user)):
+    season = period == "season"
+    sid = S.current_season_id()
+    sort_field = "season_xp" if season else "xp"
+    query: dict = {}
     if scope == "friends":
         ids = list(set(user.get("friends", []) + [user["_id"]]))
-        query = {"_id": {"$in": ids}}
+        query["_id"] = {"$in": ids}
+    if season:
+        query["season_id"] = sid
     rows = []
     rank = 0
-    cursor = db.users.find(query).sort([("xp", -1), ("wins", -1)]).limit(100)
+    cursor = db.users.find(query).sort([(sort_field, -1), ("wins", -1)]).limit(100)
     async for u in cursor:
         rank += 1
         prog = C.progression_snapshot(u.get("xp", 0))
@@ -491,15 +503,24 @@ async def leaderboard(scope: str = "global", user: dict = Depends(get_current_us
             "username": u["username"],
             "level": prog["level"],
             "rank_name": prog["rank"],
+            "score": u.get("season_xp", 0) if season else u.get("xp", 0),
             "xp": u.get("xp", 0),
             "wins": u.get("wins", 0),
             "is_me": u["_id"] == user["_id"],
         })
     my_rank = next((r["rank"] for r in rows if r["is_me"]), None)
     if my_rank is None and scope == "global":
-        higher = await db.users.count_documents({"xp": {"$gt": user.get("xp", 0)}})
-        my_rank = higher + 1
-    return {"scope": scope, "rows": rows, "my_rank": my_rank}
+        if season:
+            if user.get("season_id") == sid:
+                higher = await db.users.count_documents(
+                    {"season_id": sid, "season_xp": {"$gt": user.get("season_xp", 0)}})
+                my_rank = higher + 1
+            # else: user hasn't scored this season -> unranked (None)
+        else:
+            higher = await db.users.count_documents({"xp": {"$gt": user.get("xp", 0)}})
+            my_rank = higher + 1
+    return {"scope": scope, "period": period, "rows": rows, "my_rank": my_rank,
+            "season_id": sid, "reset_seconds": S.season_reset_seconds()}
 
 
 # ---------------------------------------------------------------------------
@@ -532,9 +553,17 @@ async def claim_challenge(challenge_id: str, user: dict = Depends(get_current_us
         {"$inc": {"xp": reward},
          "$set": {"daily_challenges": dc, "level": C.level_for_xp(new_xp)}},
     )
+    await db.users.update_one({"_id": user["_id"]}, S.season_award_ops(user, reward))
     updated = await db.users.find_one({"_id": user["_id"]})
     return {"claimed": reward, "user": public_user(updated),
             "challenges": CH.public_challenges(dc)}
+
+
+@api_router.get("/challenges/recent")
+async def recent_challenges(user: dict = Depends(get_current_user)):
+    """Challenges completed by the user's most recent match (for the
+    results-screen toast). Cleared implicitly on the next match."""
+    return {"challenges": user.get("last_match_challenges", [])}
 
 
 # ---------------------------------------------------------------------------

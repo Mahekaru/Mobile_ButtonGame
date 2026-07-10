@@ -30,6 +30,8 @@ from config import (
     BOT_PAUSE_RANGE,
     BOT_TOPK,
     DEFENSIVE_ABILITIES,
+    FINAL_STRETCH_COUNT,
+    FINAL_STRETCH_MULT,
     FRIEND_KO_BONUS,
     GAME_CONFIG,
     HOLD_XP_CAP,
@@ -43,6 +45,7 @@ from config import (
     protection_for,
     roll_threshold,
 )
+import seasons as S
 
 
 def now() -> float:
@@ -130,10 +133,15 @@ class Match:
         return sum(1 for p in self.players.values() if p.alive)
 
     def eff_slope(self) -> float:
-        """Danger climbs faster as the field shrinks (late-game tension)."""
+        """Danger climbs faster as the field shrinks (late-game tension),
+        then surges for the final handful of survivors."""
         total = len(self.players) or 1
-        shrink = 1.0 - (self.alive_count() / total)
-        return GAME_CONFIG["danger_slope"] * (1.0 + LATE_TENSION * shrink)
+        alive = self.alive_count()
+        shrink = 1.0 - (alive / total)
+        slope = GAME_CONFIG["danger_slope"] * (1.0 + LATE_TENSION * shrink)
+        if alive <= FINAL_STRETCH_COUNT:
+            slope *= FINAL_STRETCH_MULT
+        return slope
 
     def danger_for(self, player: "Player") -> float:
         """Personal self-death chance %, based on time since THIS player's last press."""
@@ -612,12 +620,17 @@ class MatchManager:
             update["$addToSet"] = {"rivals": {"$each": others}}
         await self.db.users.update_one({"_id": p.user_id}, update)
 
-        # Daily-challenge progress from this match result.
+        # Season XP (weekly-reset leaderboard) — separate op so a season
+        # rollover cleanly resets rather than increments.
+        await self.db.users.update_one({"_id": p.user_id}, S.season_award_ops(user, xp_gained))
+
+        # Daily-challenge progress + capture completions for the results toast.
         fresh = await self.db.users.find_one({"_id": p.user_id})
         if fresh:
             dc, _ = CH.ensure_today(fresh)
             result = {"won": won, "placement": placement, "kills": p.kills,
                       "self_eliminated": p.self_eliminated, "patience_xp": p.hold_xp}
-            CH.apply_progress(dc, result)
-            await self.db.users.update_one({"_id": p.user_id},
-                                           {"$set": {"daily_challenges": dc}})
+            newly = CH.apply_progress(dc, result)
+            await self.db.users.update_one(
+                {"_id": p.user_id},
+                {"$set": {"daily_challenges": dc, "last_match_challenges": newly}})

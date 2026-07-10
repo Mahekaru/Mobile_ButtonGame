@@ -293,8 +293,11 @@ RIVAL_KO_BONUS = 25    # eliminating a human you've matched with before
 HOLD_XP_PER_SEC = 2
 HOLD_XP_CAP = 140
 
-# Late-game tension: danger climbs faster as the field shrinks.
-LATE_TENSION = 2.2
+# Late-game tension: danger climbs faster as the field shrinks, then surges
+# for the final few survivors so end-game presses are genuinely nerve-wracking.
+LATE_TENSION = 3.2
+FINAL_STRETCH_COUNT = 8    # "final stretch" begins when this many remain
+FINAL_STRETCH_MULT = 1.7   # extra danger-slope multiplier during the final stretch
 
 # Daily / weekly login rewards
 DAILY_XP = 100

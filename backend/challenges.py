@@ -43,17 +43,22 @@ def _metric_deltas(result: dict) -> dict:
     }
 
 
-def apply_progress(dc: dict, result: dict) -> dict:
-    """Mutate + return the daily-challenge doc with match progress applied."""
+def apply_progress(dc: dict, result: dict) -> list:
+    """Mutate `dc` with match progress; return challenges newly completed
+    by this match (not previously complete, not yet claimed)."""
     deltas = _metric_deltas(result)
+    newly = []
     for item in dc["items"]:
         spec = CHALLENGE_BY_ID.get(item["id"])
         if not spec or item.get("claimed"):
             continue
+        was_complete = item.get("progress", 0) >= spec["goal"]
         d = deltas.get(spec["metric"], 0)
         if d:
             item["progress"] = min(spec["goal"], item.get("progress", 0) + d)
-    return dc
+        if not was_complete and item.get("progress", 0) >= spec["goal"]:
+            newly.append({"id": item["id"], "name": spec["name"], "reward": spec["reward"]})
+    return newly
 
 
 def public_challenges(dc: dict) -> dict:
