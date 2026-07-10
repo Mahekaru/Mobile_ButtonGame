@@ -35,18 +35,20 @@ export function Txt({ children, style, numberOfLines, display }: TxtProps) {
 export function GlassCard({
   children,
   style,
+  innerStyle,
   intensity = 30,
   testID,
 }: {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
+  innerStyle?: StyleProp<ViewStyle>;
   intensity?: number;
   testID?: string;
 }) {
   return (
     <View testID={testID} style={[styles.glassWrap, style]}>
       <BlurView intensity={intensity} tint="dark" style={StyleSheet.absoluteFill} />
-      <View style={styles.glassInner}>{children}</View>
+      <View style={[styles.glassInner, innerStyle]}>{children}</View>
     </View>
   );
 }

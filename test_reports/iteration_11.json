@@ -1,0 +1,40 @@
+{
+  "summary": "Frontend-only layout verification for the two just-fixed HUD/spectator bugs on 390x844 and 375x667 mobile viewports. BUG 1 (in-game elimination feed card fills full height, aligned with KILLS stat card bottom) is FIXED. BUG 2 (spectator screen with DOUBLE-XP offer still shows the LIVE ELIMINATION FEED clearly AND keeps all 3 footer buttons on-screen) is FIXED. Match regression (auth -> menu -> find-match -> lobby -> active -> self-elim via panic-button -> spectator -> VIEW MY RESULTS -> results screen) works end-to-end. No red screens or critical console errors observed (only harmless font-decoding warnings from the web preview).",
+
+  "backend_issues": {"critical": [], "minor": []},
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+
+  "test_report_links": [
+    "/tmp/10_active_hud.png (BUG1 HUD)",
+    "/tmp/60_dxp.png (BUG2 spectator w/ DXP @390x844)",
+    "/tmp/70_small_spectator.png (BUG2 spectator w/ DXP @375x667)",
+    "/tmp/80_results_small.png (VIEW MY RESULTS regression)"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [
+    "match/[id].tsx line 252: GlassCard now correctly uses innerStyle={{flex:1}} + ScrollView style={{flex:1}} so the feed extends to fill the card. Verified in DOM: feedCard height=188 vs stat column right side ~189 (aligned within 7px, no visible gap).",
+    "match/[id].tsx line 1370-1378: specFeed style { flex:1, minHeight:96, padding: space.lg } yields feed height=350 on 390x844 (DXP present) and 173 on 375x667 (DXP present) — well above the 96 minimum in both cases, so the feed is never squeezed to almost nothing.",
+    "Spectator footer buttons (spectator-double-xp-btn/results/leave) all measure 52px tall with gap: space.sm and paddingBottom: insets.bottom + space.lg. On 390x844 they land at bottoms 708/768/828 (viewport 844) and on 375x667 at bottoms 531/591/651 (viewport 667) — none clipped."
+  ],
+
+  "updated_files": [],
+
+  "success_rate": {"backend": "n/a (skipped per request)", "frontend": "100% (2/2 bug fixes + regression flow)"},
+
+  "seed_data_creation": "No seed data. Guest callsigns used: LayoutQA, LayoutQA1, DXPQA1, DXPQA2, DXPQA3, SmallQA (ephemeral guest sessions).",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Reliable repro to reach spectator: enter callsign -> find-match-btn -> wait ~8s for lobby countdown -> tap [data-testid=panic-button] every ~300ms; self-elim usually happens after 7–30 taps (danger cap resets only on your own press). DOUBLE-XP is random ~50%; up to 3 attempts is usually enough to surface it. If it doesn't show, tap spectator-leave-btn which shows an ad-overlay (wait ~5s for ad-claim and click it) to return to the menu. VIEW MY RESULTS from spectator loads the same ResultsView used at match-end. IMPORTANT: [data-testid=find-match-btn] renders 2 nodes on the tabs screen (tab + primary CTA), so use `.first` or query_selector_all + first visible element when waiting.",
+
+  "rca_of_issue": "Both bugs were layout-only. Root cause of BUG 1: hudRow's feed card previously had a hard maxHeight (~108px) on its inner container, leaving the card taller than its content and clipping the ScrollView area. Fix: GlassCard now supports innerStyle so match/[id].tsx passes innerStyle={{flex:1}}, and the inner ScrollView is style={{flex:1}}, causing the feed to fill the card and its height to match the two stacked stat cards on the right. Root cause of BUG 2: on the spectator page the ScrollView holding the feed had no minimum height and the footer used bulky buttons (56px) without gap tightening, so when the double-XP CTA appeared the feed collapsed to ~a line and the leave button could clip. Fix: specFeed given { flex:1, minHeight:96 }, spectator top section compacted, and footer button heights set to 52 with space.sm gap. Verified in DOM measurements listed above."
+}

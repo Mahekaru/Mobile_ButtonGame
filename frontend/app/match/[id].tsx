@@ -249,9 +249,9 @@ export default function MatchScreen() {
 
       {/* HUD row */}
       <View style={[styles.hudRow, { paddingTop: insets.top + space.sm }]}>
-        <GlassCard testID="elim-feed" style={styles.feedCard} intensity={25}>
+        <GlassCard testID="elim-feed" style={styles.feedCard} innerStyle={{ flex: 1 }} intensity={25}>
           <Text style={styles.feedTitle}>ELIMINATION FEED</Text>
-          <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 108 }}>
+          <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
             {(state?.feed || []).length === 0 && (
               <Text style={styles.feedEmpty}>Awaiting first press…</Text>
             )}
@@ -603,7 +603,7 @@ function SpectatorView({ state, insets, onViewResults, onExit }: any) {
         </View>
 
         <View style={styles.specHero}>
-          <MaterialCommunityIcons name="skull" size={44} color={colors.red} />
+          <MaterialCommunityIcons name="skull" size={38} color={colors.red} />
           <Text style={styles.specOut}>YOU'RE OUT</Text>
           {placement ? (
             <Text style={styles.specPlace} testID="spectator-placement">Eliminated at #{placement} of 100</Text>
@@ -644,7 +644,7 @@ function SpectatorView({ state, insets, onViewResults, onExit }: any) {
         </ScrollView>
       </View>
 
-      <View style={{ padding: space.xl, paddingBottom: insets.bottom + space.xl, gap: space.md }}>
+      <View style={{ paddingHorizontal: space.xl, paddingTop: space.md, paddingBottom: insets.bottom + space.lg, gap: space.sm }}>
         {dxp.offered && !dxp.claimed && (
           <Pressable
             testID="spectator-double-xp-btn"
@@ -665,7 +665,7 @@ function SpectatorView({ state, insets, onViewResults, onExit }: any) {
           </View>
         )}
         <Pressable testID="spectator-results-btn" onPress={onViewResults} style={styles.specResultsBtn}>
-          <MaterialCommunityIcons name="poll" size={20} color={colors.surface} />
+          <MaterialCommunityIcons name="poll" size={20} color="#fff" />
           <Text style={styles.specResultsText}>VIEW MY RESULTS</Text>
         </Pressable>
         <Pressable testID="spectator-leave-btn" onPress={handleExit} disabled={busy} style={styles.cancelBtn}>
@@ -1349,26 +1349,27 @@ const styles = StyleSheet.create({
   },
   adCountdownText: { fontFamily: font.semi, fontSize: type.base, color: colors.muted },
   // spectator
-  specHeader: { flexDirection: "row", alignItems: "center", gap: space.xs, alignSelf: "center", marginBottom: space.lg },
+  specHeader: { flexDirection: "row", alignItems: "center", gap: space.xs, alignSelf: "center", marginBottom: space.md },
   specTag: { fontFamily: font.displaySemi, fontSize: type.lg, color: colors.amber, letterSpacing: 3 },
-  specHero: { alignItems: "center", gap: space.xs, marginBottom: space.xl },
-  specOut: { fontFamily: font.displayBold, fontSize: 40, color: colors.red, letterSpacing: 1 },
+  specHero: { alignItems: "center", gap: space.xs, marginBottom: space.lg },
+  specOut: { fontFamily: font.displayBold, fontSize: 34, color: colors.red, letterSpacing: 1 },
   specPlace: { fontFamily: font.semi, fontSize: type.lg, color: colors.onSurface2 },
-  specStatsRow: { flexDirection: "row", gap: space.md, marginBottom: space.xl },
+  specStatsRow: { flexDirection: "row", gap: space.md, marginBottom: space.lg },
   specStat: {
     flex: 1,
     backgroundColor: colors.surface2,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingVertical: space.lg,
+    paddingVertical: space.md,
     alignItems: "center",
   },
-  specStatNum: { fontFamily: font.displayBold, fontSize: 40, color: colors.onSurface, lineHeight: 44 },
+  specStatNum: { fontFamily: font.displayBold, fontSize: 34, color: colors.onSurface, lineHeight: 38 },
   specStatCap: { fontFamily: font.medium, fontSize: type.sm, color: colors.muted, letterSpacing: 0.5 },
   specFeedTitle: { fontFamily: font.semi, fontSize: type.sm, color: colors.muted, letterSpacing: 1, marginBottom: space.sm },
   specFeed: {
     flex: 1,
+    minHeight: 96,
     backgroundColor: "rgba(20,20,26,0.6)",
     borderRadius: radius.lg,
     borderWidth: 1,
@@ -1377,17 +1378,19 @@ const styles = StyleSheet.create({
   },
   specFeedLine: { fontFamily: font.medium, fontSize: type.base, marginBottom: 6, color: colors.onSurface2 },
   specResultsBtn: {
-    height: 56,
+    height: 52,
     borderRadius: radius.md,
-    backgroundColor: colors.amber,
+    backgroundColor: colors.surface3,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: space.sm,
   },
-  specResultsText: { fontFamily: font.displayBold, fontSize: type.xl, color: colors.surface, letterSpacing: 1 },
+  specResultsText: { fontFamily: font.displayBold, fontSize: type.lg, color: "#fff", letterSpacing: 1 },
   specDoubleXpBtn: {
-    height: 56,
+    height: 52,
     borderRadius: radius.md,
     backgroundColor: colors.amber,
     flexDirection: "row",
