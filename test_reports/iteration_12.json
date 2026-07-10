@@ -1,0 +1,39 @@
+{
+  "summary": "Post-fork regression verification (backend + frontend). All fork-critical concerns pass: (a) backend base URL https://panic-4.preview.emergentagent.com/api reachable, (b) guest auth returns 200 with token, (c) leaderboard (global + friends, season + alltime) returns sorted rows with my_rank, (d) daily challenges GET returns 3 deterministic items and claim rules (404 unknown / 400 incomplete) enforced, (e) match join/leave + challenge progress accrual works, (f) WebSocket transport /api/match/{id}/ws rejects bad tokens (close 4401) and pushes a personalised state frame for valid tokens — NO fork-related WS regression. Frontend Expo web preview loads, entry screen renders (input-username + auth-submit), auth -> menu shows daily reward/challenges/rank/PRESS/FIND MATCH + tab bar, FIND MATCH -> lobby -> active phase in ~6.5s, panic-button taps register (3 kills, danger 5%->6%, elimination feed populated with feed items and self entries in red). No red-screen errors, only harmless font sfntVersion warnings on the web preview asset endpoint (pre-existing across all iterations).",
+
+  "backend_issues": {"critical": [], "minor": []},
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_iteration10.py (10/10 pass — LB + Challenges + WS transport)",
+    "/app/test_reports/pytest/pytest_iter12.xml",
+    "/tmp/01_menu.png (menu post-auth)",
+    "/tmp/02_lobby_active.png (active HUD)",
+    "/tmp/03_after_press.png (3 kills, feed populated)"
+  ],
+
+  "action_items": [
+    "OPTIONAL housekeeping — 4 stale tests in older suites reflect product evolution, not regressions, and can be refreshed when convenient: (1) tests/test_panic_button.py::TestAbilities::test_list asserts len==4 but there are now 9 abilities. (2) tests/test_social_features.py::TestCoLobby::test_two_guests_share_match keys off state['humans'] which no longer exists (state exposes players_total/players_alive). (3) tests/test_social_features.py::TestResultsAndPersistence::test_results_shape_after_leave and (4) tests/test_rewarded_ads.py::TestAdsRegression::test_match_results_still_render both poll state right after /match/leave and expect 'results' immediately — but leaving during active phase only marks the player eliminated; results appear only when the match ends (99 bots keep playing). They need to either wait for phase==ended or read 'my_result' (which IS present) instead of 'results'."
+  ],
+
+  "critical_code_review_comments": [],
+
+  "updated_files": [],
+
+  "success_rate": {"backend": "100% (10/10 iter10 fork-critical) + 33/37 across broader legacy suites (4 stale-test failures, no app regressions)", "frontend": "100% (entry -> auth -> menu -> lobby -> active -> press flow)"},
+
+  "seed_data_creation": "Ephemeral guest sessions only: ForkQA (UI), plus TEST_A / TEST_B / TEST_P / TEST_W* from pytest fixtures.",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Fork base URL is https://panic-4.preview.emergentagent.com — confirmed live for HTTP + WSS. WebSocket URL pattern: wss://panic-4.preview.emergentagent.com/api/match/{id}/ws?token={jwt}. Bad tokens are surfaced either as WebSocketBadStatusException at handshake (Cloudflare 403) or immediate 4401 close — test_iteration10.py handles both. To reach active phase in UI, wait ~6.5s after tapping [data-testid=find-match-btn]; [data-testid=panic-button] then becomes visible. Font-decoding warnings on /assets/*.ttf are harmless preview-only noise.",
+
+  "rca_of_issue": "N/A — no bugs found. The 4 legacy test failures are stale expectations from earlier iterations (before abilities expanded to 9 and before state schema dropped 'humans' / moved end-of-match payload to 'my_result')."
+}
