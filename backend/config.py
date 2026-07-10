@@ -95,55 +95,55 @@ def make_bot_name(used: set) -> str:
 ABILITIES = [
     {
         "id": "second_chance", "name": "Second Chance", "icon": "shield-refresh",
-        "unlock_level": 2,
+        "unlock_level": 3,
         "type": "defensive",
         "desc": "Once per match: if selected for elimination, survive and reroll the target.",
     },
     {
         "id": "lucky_press", "name": "Lucky Press", "icon": "clover",
-        "unlock_level": 3,
+        "unlock_level": 6,
         "type": "offensive",
         "desc": "Once per match: reduce your current self-elimination risk by 25%.",
     },
     {
         "id": "deflect", "name": "Deflect", "icon": "shield-sword",
-        "unlock_level": 5,
+        "unlock_level": 18,
         "type": "defensive",
         "desc": "Once per match: if selected for elimination, force a reroll.",
     },
     {
         "id": "double_tap", "name": "Double Tap", "icon": "gesture-double-tap",
-        "unlock_level": 7,
+        "unlock_level": 27,
         "type": "offensive",
         "desc": "Once per match: trigger two eliminations from a single button press.",
     },
     {
         "id": "hide", "name": "Vanish", "icon": "ghost",
-        "unlock_level": 4,
+        "unlock_level": 14,
         "type": "active",
         "desc": "Once per match: press and become untargetable (and press-safe) for 5 seconds.",
     },
     {
         "id": "overcharge", "name": "Overcharge", "icon": "lightning-bolt",
-        "unlock_level": 6,
+        "unlock_level": 22,
         "type": "active",
         "desc": "Once per match: TRIPLE your match XP, but your danger rises +15% for the rest of the match.",
     },
     {
         "id": "adrenaline", "name": "Adrenaline", "icon": "run-fast",
-        "unlock_level": 8,
+        "unlock_level": 33,
         "type": "active",
         "desc": "Once per match: DOUBLE every patience XP you bank from here on.",
     },
     {
         "id": "steady", "name": "Steady Hand", "icon": "timer-sand",
-        "unlock_level": 10,
+        "unlock_level": 40,
         "type": "active",
         "desc": "Once per match: freeze your danger meter for 6 seconds after you press.",
     },
     {
         "id": "failsafe", "name": "Failsafe", "icon": "shield-check",
-        "unlock_level": 3,
+        "unlock_level": 10,
         "type": "active",
         "desc": "Once per match: for 2 seconds after you press, you cannot eliminate yourself.",
     },
@@ -223,22 +223,38 @@ DEFAULT_COSMETICS = {
 # ---------------------------------------------------------------------------
 MAX_LEVEL = 50
 
-# Hand-tuned cumulative XP table (XP required to REACH each level; level 1 = 0).
-# Standard RPG shape: early levels are cheap, later levels progressively pricier.
-# Milestones land on clean round numbers:
-#   L10 = 2,000 · L15 = 4,000 · L20 = 7,000 · L25 = 11,000 · L30 = 16,000
-#   L35 = 22,000 · L40 = 30,000 · L45 = 42,000 · L50 = 60,000 (max / Immortal)
-XP_TABLE = [
-    0, 100, 250, 450, 700, 960, 1220, 1480, 1740, 2000,
-    2400, 2800, 3200, 3600, 4000, 4600, 5200, 5800, 6400, 7000,
-    7800, 8600, 9400, 10200, 11000, 12000, 13000, 14000, 15000, 16000,
-    17200, 18400, 19600, 20800, 22000, 23600, 25200, 26800, 28400, 30000,
-    32400, 34800, 37200, 39600, 42000, 45600, 49200, 52800, 56400, 60000,
-]
+# ---------------------------------------------------------------------------
+# Authoritative rank progression (single source of truth).
+#
+# `rank_threshold(rank)` = cumulative lifetime XP a player must have to REACH
+# `rank`. Rank 1 = 0 XP (everyone starts here). Within each 10-rank tier the
+# curve is EASED (exponent 1.6): the first ranks are cheap and each subsequent
+# rank costs progressively more, so no two consecutive ranks share a threshold.
+# Every tenth rank (a "milestone") lands exactly on rank*1000:
+#   R10 = 10,000 · R20 = 20,000 · R30 = 30,000 · R40 = 40,000 · R50 = 50,000
+# Thresholds are rounded to the nearest 100 XP.
+XP_CURVE_EXPONENT = 1.6
+
+
+def rank_threshold(rank: int) -> int:
+    """Cumulative lifetime XP required to REACH `rank` (rank 1 = 0)."""
+    if rank <= 1:
+        return 0
+    if rank > MAX_LEVEL:
+        rank = MAX_LEVEL
+    tier_start_rank = ((rank - 1) // 10) * 10
+    tier_start_xp = tier_start_rank * 1000
+    tier_progress = (rank - tier_start_rank) / 10.0
+    raw = tier_start_xp + 10000.0 * (tier_progress ** XP_CURVE_EXPONENT)
+    return int(round(raw / 100.0) * 100)
+
+
+# Precomputed cumulative thresholds; index i == rank (i+1). XP_TABLE[0] == 0.
+XP_TABLE = [rank_threshold(r) for r in range(1, MAX_LEVEL + 1)]
 
 
 def xp_for_level(level: int) -> int:
-    """Cumulative XP required to REACH `level` (level 1 = 0 xp)."""
+    """Cumulative XP required to REACH `level` (alias of rank_threshold)."""
     if level <= 1:
         return 0
     if level >= MAX_LEVEL:

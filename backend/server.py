@@ -72,7 +72,30 @@ async def get_current_user(creds: HTTPAuthorizationCredentials = Depends(securit
     user = await db.users.find_one({"_id": user_id})
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    await _sync_unlocked_abilities(user)
     return user
+
+
+async def _sync_unlocked_abilities(user: dict) -> None:
+    """Persist the monotonic set of unlocked ability ids for `user`.
+
+    Unlocks are ADDITIVE: an ability becomes unlocked when the player reaches its
+    milestone rank (config unlock_level) or because it is currently equipped, and
+    it then stays unlocked forever — even if the rank curve later changes or the
+    player's recomputed rank would be lower. Idempotent: writes only when the set
+    grows, so logging in / recalculating XP never "re-unlocks" the same ability.
+    """
+    level = C.level_for_xp(user.get("xp", 0))
+    stored = set(user.get("unlocked_abilities") or [])
+    merged = set(stored)
+    merged.update(C.unlocked_ability_ids(level))
+    if user.get("equipped_ability"):
+        merged.add(user["equipped_ability"])
+    ordered = [a["id"] for a in C.ABILITIES if a["id"] in merged]
+    user["unlocked_abilities"] = ordered
+    if merged != stored:
+        await db.users.update_one({"_id": user["_id"]},
+                                  {"$set": {"unlocked_abilities": ordered}})
 
 
 FRIEND_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no ambiguous chars
@@ -106,7 +129,7 @@ def public_user(user: dict) -> dict:
         "equipped_ability": user.get("equipped_ability"),
         "equipped_cosmetics": user.get("equipped_cosmetics", dict(C.DEFAULT_COSMETICS)),
         "progression": prog,
-        "unlocked_abilities": C.unlocked_ability_ids(level),
+        "unlocked_abilities": user.get("unlocked_abilities") or C.unlocked_ability_ids(level),
         "stats": {
             "matches_played": matches,
             "wins": wins,
@@ -191,6 +214,7 @@ def _new_user_doc(user_id: str, username: str, friend_code: str, email=None, pas
         "placement_sum": 0,
         "equipped_ability": None,
         "equipped_cosmetics": dict(C.DEFAULT_COSMETICS),
+        "unlocked_abilities": [],
     }
 
 
@@ -416,12 +440,12 @@ async def stats(user: dict = Depends(get_current_user)):
 
 @api_router.get("/abilities")
 async def abilities(user: dict = Depends(get_current_user)):
-    level = C.level_for_xp(user.get("xp", 0))
     equipped = user.get("equipped_ability")
+    unlocked = set(user.get("unlocked_abilities") or [])
     return {
         "equipped": equipped,
         "abilities": [
-            {**a, "unlocked": a["unlock_level"] <= level,
+            {**a, "unlocked": a["id"] in unlocked,
              "equipped": a["id"] == equipped}
             for a in C.ABILITIES
         ],
@@ -430,12 +454,12 @@ async def abilities(user: dict = Depends(get_current_user)):
 
 @api_router.post("/profile/ability")
 async def equip_ability(body: EquipAbilityBody, user: dict = Depends(get_current_user)):
-    level = C.level_for_xp(user.get("xp", 0))
+    unlocked = set(user.get("unlocked_abilities") or [])
     if body.ability_id is not None:
         ab = C.ABILITY_BY_ID.get(body.ability_id)
         if not ab:
             raise HTTPException(status_code=404, detail="Ability not found")
-        if ab["unlock_level"] > level:
+        if body.ability_id not in unlocked:
             raise HTTPException(status_code=403, detail="Ability locked")
     await db.users.update_one({"_id": user["_id"]},
                               {"$set": {"equipped_ability": body.ability_id}})

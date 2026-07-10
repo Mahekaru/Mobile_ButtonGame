@@ -101,6 +101,44 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+## Session: Rank XP progression bug fix (2026-06)
+user_problem_statement: "Fix XP progression bug — higher ranks shared the same XP requirement (flat per-tier increments). Implement one authoritative eased curve, ranks 1-50, milestones R10=10k..R50=50k, strictly increasing thresholds, milestone abilities at ranks 3,6,10,14,18,22,27,33,40,50. Preserve existing XP + unlocked abilities; recompute rank from lifetime XP; progress bar uses current-rank window."
+
+backend:
+  - task: "Authoritative eased rank curve (config.rank_threshold) + level_for_xp"
+    implemented: true
+    working: "NA"
+    file: "config.py"
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Root cause: old XP_TABLE used constant per-tier increments (e.g. +1000 for ranks 26-30) so xp_for_next was identical across a tier. Replaced with rank_threshold(rank)=tierStartXp+10000*pow(tierProgress,1.6) rounded to 100. Verified: 50 ranks, strictly increasing, no consec dupes, R10/20/30/40/50 == 10k/20k/30k/40k/50k, level_for_xp(10000)=10, (50000)=50. 9/9 unit tests pass (tests/test_rank_progression.py)."
+  - task: "Milestone ability unlocks at ranks 3,6,10,14,18,22,27,33,40,50"
+    implemented: true
+    working: "NA"
+    file: "config.py, server.py"
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Reassigned 10 abilities' unlock_level to the 10 milestone ranks. Added persistent monotonic unlocked_abilities set synced in get_current_user (additive; keeps equipped ability; idempotent — only writes when set grows). /abilities + equip now gate on the stored set not raw level. New guest: all locked (correct)."
+
+frontend:
+  - task: "Client mirror + rank roadmap reflect new curve/unlocks"
+    implemented: true
+    working: "NA"
+    file: "src/progression.ts, app/(tabs)/rank.tsx"
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "progression.ts rankThreshold mirrors backend exactly (display only; backend authoritative). Roadmap LEVEL_UNLOCKS updated to new milestone ranks. Lint clean."
+
+
 ## Session: Leaderboards + Daily Challenges + WebSocket + Spectator (2026-07-10)
 user_problem_statement: "Add (a) Leaderboards, (b) Daily challenges, (c) WebSocket real-time match transport + spectator view after death, (d) fix auth screen auto-redirect."
 

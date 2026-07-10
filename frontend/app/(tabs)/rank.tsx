@@ -7,16 +7,17 @@ import { colors, font, radius, space, type } from "@/src/theme";
 import { useAuth } from "@/src/auth";
 import { MAX_LEVEL, rankName, xpForLevel } from "@/src/progression";
 
-// Ability + notable cosmetic unlocks keyed by the level they become available.
+// Ability unlocks keyed by the rank at which they become available.
 const LEVEL_UNLOCKS: Record<number, string> = {
-  2: "Unlocks: Second Chance · Aura Glow",
-  3: "Unlocks: Lucky Press · Failsafe",
-  4: "Unlocks: Vanish",
-  5: "Unlocks: Deflect · Inferno FX",
-  6: "Unlocks: Overcharge",
-  7: "Unlocks: Double Tap",
-  8: "Unlocks: Adrenaline · Overload FX",
-  10: "Unlocks: Steady Hand · Neon Pulse",
+  3: "Unlocks: Second Chance",
+  6: "Unlocks: Lucky Press",
+  10: "Unlocks: Failsafe",
+  14: "Unlocks: Vanish",
+  18: "Unlocks: Deflect",
+  22: "Unlocks: Overcharge",
+  27: "Unlocks: Double Tap",
+  33: "Unlocks: Adrenaline",
+  40: "Unlocks: Steady Hand",
   50: "MAX RANK · Unlocks: Immortality ability + Immortal title",
 };
 
