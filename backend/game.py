@@ -15,6 +15,7 @@ import time
 import uuid
 from typing import Dict, List, Optional
 
+import challenges as CH
 from config import (
     ABILITY_BY_ID,
     DEFENSIVE_ABILITIES,
@@ -93,6 +94,20 @@ class Match:
         self._persisted_pids: set = set()
         self.party_code: Optional[str] = None
         self.is_party = False
+        self.ws_conns: Dict[object, str] = {}   # websocket -> user_id
+
+    async def broadcast(self):
+        """Push a personalized state snapshot to every connected websocket."""
+        if not self.ws_conns:
+            return
+        dead = []
+        for ws, uid in list(self.ws_conns.items()):
+            try:
+                await ws.send_json(self.state_for(uid))
+            except Exception:
+                dead.append(ws)
+        for ws in dead:
+            self.ws_conns.pop(ws, None)
 
     # ---- helpers -----------------------------------------------------------
     def alive_players(self) -> List[Player]:
@@ -327,6 +342,7 @@ class Match:
         # Wait out the lobby countdown, allowing humans to gather.
         while now() < self.start_at and self.phase == "lobby":
             await asyncio.sleep(0.25)
+            await self.broadcast()
         async with self.lock:
             if self.phase == "lobby":
                 self._backfill_bots()
@@ -336,6 +352,7 @@ class Match:
                     p.last_press_at = t0          # everyone's personal timer starts now
                     if p.is_bot:
                         p.threshold = roll_threshold(p.personality)
+        await self.broadcast()
 
         while True:
             await asyncio.sleep(GAME_CONFIG["tick_sec"])
@@ -352,7 +369,10 @@ class Match:
                     ready.sort(key=lambda p: self.danger_for(p) - p.threshold, reverse=True)
                     presser = ready[0] if random.random() < 0.8 else random.choice(ready)
                     self.resolve_press(presser.pid, use_ability=False)
+            await self.broadcast()
 
+        # Match has ended — push the final state (results/spectator recap).
+        await self.broadcast()
         # Safety net: persist any human not yet recorded (e.g. the winner).
         async with self.lock:
             humans = [p for p in self.players.values() if not p.is_bot and p.user_id]
@@ -402,7 +422,12 @@ class Match:
                 "last_press_at": me.last_press_at,
                 "hold_xp": me.hold_xp,
             }
-            if self.phase == "ended" or not me.alive:
+            # Dead players keep watching (spectator mode) — expose their own
+            # recap so they can bail to results at any time, but only auto-show
+            # the results screen once the whole match has ended.
+            if not me.alive:
+                data["my_result"] = self._results_for(me)
+            if self.phase == "ended":
                 data["results"] = self._results_for(me)
         return data
 
@@ -522,3 +547,13 @@ class MatchManager:
         if others:
             update["$addToSet"] = {"rivals": {"$each": others}}
         await self.db.users.update_one({"_id": p.user_id}, update)
+
+        # Daily-challenge progress from this match result.
+        fresh = await self.db.users.find_one({"_id": p.user_id})
+        if fresh:
+            dc, _ = CH.ensure_today(fresh)
+            result = {"won": won, "placement": placement, "kills": p.kills,
+                      "self_eliminated": p.self_eliminated, "patience_xp": p.hold_xp}
+            CH.apply_progress(dc, result)
+            await self.db.users.update_one({"_id": p.user_id},
+                                           {"$set": {"daily_challenges": dc}})

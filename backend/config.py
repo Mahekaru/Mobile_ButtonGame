@@ -285,3 +285,29 @@ WEEKLY_XP = 350           # every 7th consecutive day
 
 # Rewarded ads
 AD_COOLDOWN_SEC = 180     # no bonus ad for 3 minutes after finishing one
+
+
+# ---------------------------------------------------------------------------
+# Daily challenges — a fresh set is drawn each day (deterministic by date).
+# Progress accrues from match results; completing one grants bonus XP.
+# ---------------------------------------------------------------------------
+CHALLENGE_POOL = [
+    {"id": "win_one", "name": "Sole Survivor", "desc": "Win a match",
+     "icon": "trophy", "metric": "wins", "goal": 1, "reward": 250},
+    {"id": "elim_five", "name": "Executioner", "desc": "Eliminate 5 operatives",
+     "icon": "skull", "metric": "eliminations", "goal": 5, "reward": 150},
+    {"id": "elim_ten", "name": "Rampage", "desc": "Eliminate 10 operatives",
+     "icon": "skull-crossbones", "metric": "eliminations", "goal": 10, "reward": 260},
+    {"id": "play_three", "name": "Warm Up", "desc": "Play 3 matches",
+     "icon": "sword-cross", "metric": "matches", "goal": 3, "reward": 100},
+    {"id": "top_ten", "name": "Final Ten", "desc": "Reach the top 10",
+     "icon": "flag-checkered", "metric": "top10", "goal": 1, "reward": 120},
+    {"id": "top_ten_two", "name": "Consistent", "desc": "Reach the top 10 twice",
+     "icon": "flag-variant", "metric": "top10", "goal": 2, "reward": 200},
+    {"id": "patience", "name": "Ice Veins", "desc": "Bank 150 patience XP",
+     "icon": "timer-sand", "metric": "patience", "goal": 150, "reward": 130},
+    {"id": "survive_two", "name": "No Panic", "desc": "Finish 2 matches without self-eliminating",
+     "icon": "shield-check", "metric": "survive", "goal": 2, "reward": 110},
+]
+CHALLENGE_BY_ID = {c["id"]: c for c in CHALLENGE_POOL}
+DAILY_CHALLENGE_COUNT = 3

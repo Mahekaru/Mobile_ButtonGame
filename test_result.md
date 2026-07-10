@@ -101,3 +101,106 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+## Session: Leaderboards + Daily Challenges + WebSocket + Spectator (2026-07-10)
+user_problem_statement: "Add (a) Leaderboards, (b) Daily challenges, (c) WebSocket real-time match transport + spectator view after death, (d) fix auth screen auto-redirect."
+
+backend:
+  - task: "Leaderboard API GET /api/leaderboard?scope=global|friends"
+    implemented: true
+    working: "NA"
+    file: "server.py"
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Sorts users by xp desc (tiebreak wins), top 100, is_me flag, my_rank fallback via count_documents. Local curl: 100 rows, my_rank computed. friends scope includes self+friends."
+  - task: "Daily challenges GET /api/challenges + POST /api/challenges/claim/{id}"
+    implemented: true
+    working: "NA"
+    file: "server.py, challenges.py, config.py, game.py"
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Deterministic daily draw of 3 challenges seeded by UTC date. Progress accrues in game.persist_player after each match. Claim grants reward XP once. Metrics: wins/eliminations/matches/top10/patience/survive."
+  - task: "WebSocket real-time transport /api/match/{id}/ws"
+    implemented: true
+    working: "NA"
+    file: "server.py, game.py"
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "JWT auth via ?token=. Match.broadcast() pushes personalized state on lobby countdown, each tick, every press, leave, and end. Verified wss works through external ingress locally."
+  - task: "state_for spectator split (results only on ended; my_result while dead)"
+    implemented: true
+    working: "NA"
+    file: "game.py"
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Dead players now keep receiving state (spectate) until match ends; my_result lets them bail to recap early."
+
+frontend:
+  - task: "Leaderboard screen (/leaderboard) with global/friends tabs"
+    implemented: true
+    working: "NA"
+    file: "app/leaderboard.tsx, app/(tabs)/index.tsx"
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Trophy header icon on Play opens modal. Screenshot verified rendering + my_rank chip."
+  - task: "Daily challenges screen (/challenges) with claim"
+    implemented: true
+    working: "NA"
+    file: "app/challenges.tsx, app/(tabs)/index.tsx"
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Card on Play menu opens modal with progress bars + claim buttons. Screenshot verified."
+  - task: "Match WS transport + spectator view after death"
+    implemented: true
+    working: "NA"
+    file: "app/match/[id].tsx, src/api.ts"
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "WS with automatic polling fallback. On death shows SpectatorView (live feed + remaining + VIEW MY RESULTS + LEAVE). Auto results on match end."
+  - task: "Auth auto-redirect when session valid"
+    implemented: true
+    working: "NA"
+    file: "app/auth.tsx"
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "useEffect redirects to /(tabs) if user context truthy."
+
+metadata:
+  test_sequence: 10
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "WebSocket real-time transport /api/match/{id}/ws"
+    - "Match WS transport + spectator view after death"
+    - "Daily challenges (progress accrual + claim)"
+    - "Leaderboard API + screen"
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: "Implemented a,b,c,d. Backend curl + external wss verified locally; 3 frontend screens screenshot-verified. Please test: (1) leaderboard global+friends, (2) challenges list/progress/claim, (3) WS match updates + spectator flow after being eliminated (may need to leave match to reach death, or spectate to end), (4) auth redirect. Guest auth: enter any callsign."

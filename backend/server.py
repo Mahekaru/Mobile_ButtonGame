@@ -10,12 +10,13 @@ from typing import Optional
 import bcrypt
 import jwt
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, status
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, EmailStr, Field
 from starlette.middleware.cors import CORSMiddleware
 
+import challenges as CH
 import config as C
 from game import MatchManager
 
@@ -170,6 +171,7 @@ def _new_user_doc(user_id: str, username: str, friend_code: str, email=None, pas
         "rivals": [],
         "last_daily_claim": None,
         "daily_streak": 0,
+        "daily_challenges": None,
         "last_ad_at": None,
         "last_match_xp": 0,
         "last_match_id": None,
@@ -469,6 +471,73 @@ async def equip_cosmetic(body: EquipCosmeticBody, user: dict = Depends(get_curre
 
 
 # ---------------------------------------------------------------------------
+# Leaderboards
+# ---------------------------------------------------------------------------
+@api_router.get("/leaderboard")
+async def leaderboard(scope: str = "global", user: dict = Depends(get_current_user)):
+    query = {}
+    if scope == "friends":
+        ids = list(set(user.get("friends", []) + [user["_id"]]))
+        query = {"_id": {"$in": ids}}
+    rows = []
+    rank = 0
+    cursor = db.users.find(query).sort([("xp", -1), ("wins", -1)]).limit(100)
+    async for u in cursor:
+        rank += 1
+        prog = C.progression_snapshot(u.get("xp", 0))
+        rows.append({
+            "rank": rank,
+            "id": u["_id"],
+            "username": u["username"],
+            "level": prog["level"],
+            "rank_name": prog["rank"],
+            "xp": u.get("xp", 0),
+            "wins": u.get("wins", 0),
+            "is_me": u["_id"] == user["_id"],
+        })
+    my_rank = next((r["rank"] for r in rows if r["is_me"]), None)
+    if my_rank is None and scope == "global":
+        higher = await db.users.count_documents({"xp": {"$gt": user.get("xp", 0)}})
+        my_rank = higher + 1
+    return {"scope": scope, "rows": rows, "my_rank": my_rank}
+
+
+# ---------------------------------------------------------------------------
+# Daily challenges
+# ---------------------------------------------------------------------------
+@api_router.get("/challenges")
+async def get_challenges(user: dict = Depends(get_current_user)):
+    dc, changed = CH.ensure_today(user)
+    if changed:
+        await db.users.update_one({"_id": user["_id"]}, {"$set": {"daily_challenges": dc}})
+    return CH.public_challenges(dc)
+
+
+@api_router.post("/challenges/claim/{challenge_id}")
+async def claim_challenge(challenge_id: str, user: dict = Depends(get_current_user)):
+    dc, changed = CH.ensure_today(user)
+    spec = C.CHALLENGE_BY_ID.get(challenge_id)
+    item = next((i for i in dc["items"] if i["id"] == challenge_id), None)
+    if not spec or not item:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    if item.get("progress", 0) < spec["goal"]:
+        raise HTTPException(status_code=400, detail="Challenge not complete")
+    if item.get("claimed"):
+        raise HTTPException(status_code=400, detail="Already claimed")
+    item["claimed"] = True
+    reward = spec["reward"]
+    new_xp = user.get("xp", 0) + reward
+    await db.users.update_one(
+        {"_id": user["_id"]},
+        {"$inc": {"xp": reward},
+         "$set": {"daily_challenges": dc, "level": C.level_for_xp(new_xp)}},
+    )
+    updated = await db.users.find_one({"_id": user["_id"]})
+    return {"claimed": reward, "user": public_user(updated),
+            "challenges": CH.public_challenges(dc)}
+
+
+# ---------------------------------------------------------------------------
 # Match routes
 # ---------------------------------------------------------------------------
 @api_router.post("/match/join")
@@ -527,6 +596,7 @@ async def match_press(match_id: str, body: PressBody, user: dict = Depends(get_c
         outcome = match.resolve_press(pid, body.use_ability)
     if outcome is None:
         raise HTTPException(status_code=409, detail="Cannot press right now")
+    await match.broadcast()
     return {"outcome": outcome, "state": match.state_for(user["_id"])}
 
 
@@ -554,7 +624,38 @@ async def match_leave(match_id: str, user: dict = Depends(get_current_user)):
             if p and p.alive and match.phase == "active":
                 match._eliminate(p, killer=None, self_elim=False)
                 match._check_end()
+        await match.broadcast()
     return {"ok": True}
+
+
+@api_router.websocket("/match/{match_id}/ws")
+async def match_ws(websocket: WebSocket, match_id: str, token: str = Query(None)):
+    """Real-time match transport. Auth via ?token= (JWT). Server pushes a
+    personalized state snapshot on every meaningful change; the client falls
+    back to HTTP polling if the socket can't be established."""
+    try:
+        payload = jwt.decode(token or "", JWT_SECRET, algorithms=[JWT_ALGO])
+        user_id = payload.get("sub")
+    except jwt.PyJWTError:
+        await websocket.close(code=4401)
+        return
+    match = manager.get(match_id)
+    if not match or not user_id:
+        await websocket.close(code=4404)
+        return
+    await websocket.accept()
+    match.ws_conns[websocket] = user_id
+    try:
+        await websocket.send_json(match.state_for(user_id))
+        while True:
+            # We don't expect client messages; receive() detects disconnects.
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+    finally:
+        match.ws_conns.pop(websocket, None)
 
 
 @api_router.get("/")

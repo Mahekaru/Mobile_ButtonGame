@@ -4,6 +4,12 @@ import { storage } from "@/src/utils/storage";
 const BASE = `${process.env.EXPO_PUBLIC_BACKEND_URL}/api`;
 export const TOKEN_KEY = "panic_auth_token";
 
+// WebSocket URL for the real-time match transport (falls back to http polling).
+export function matchWsUrl(matchId: string, token: string): string {
+  const base = (process.env.EXPO_PUBLIC_BACKEND_URL || "").replace(/^http/, "ws");
+  return `${base}/api/match/${matchId}/ws?token=${encodeURIComponent(token)}`;
+}
+
 export async function getToken(): Promise<string | null> {
   return storage.secureGet(TOKEN_KEY, null);
 }
@@ -99,6 +105,14 @@ export const api = {
     request<{ user: any }>("/profile/cosmetic", {
       method: "POST",
       body: { category, item_id },
+    }),
+  leaderboard: (scope: "global" | "friends") =>
+    request<{ scope: string; rows: any[]; my_rank: number | null }>(`/leaderboard?scope=${scope}`),
+  challenges: () =>
+    request<{ date: string; challenges: any[]; completed: number; total: number }>("/challenges"),
+  claimChallenge: (id: string) =>
+    request<{ claimed: number; user: any; challenges: any }>(`/challenges/claim/${id}`, {
+      method: "POST",
     }),
   joinMatch: () => request<{ match_id: string; pid: string }>("/match/join", { method: "POST" }),
   createParty: () =>

@@ -22,7 +22,7 @@ import { colors, font, radius, space, type, dangerColor, SKIN_COLORS } from "@/s
 import { ABILITY_META } from "@/src/catalog";
 import { VictoryFX, ButtonFX, PressBurst } from "@/src/fx";
 import { levelForXp, rankName } from "@/src/progression";
-import { api } from "@/src/api";
+import { api, getToken, matchWsUrl } from "@/src/api";
 import { useAuth } from "@/src/auth";
 import { adsSupported, showRewardedInterstitial } from "@/src/ads";
 import { GlassCard, SkinSurface } from "@/src/ui";
@@ -39,6 +39,7 @@ export default function MatchScreen() {
   const [pressing, setPressing] = useState(false);
   const [reveal, setReveal] = useState<{ text: string; tone: string } | null>(null);
   const [burstKey, setBurstKey] = useState(0);
+  const [showResults, setShowResults] = useState(false);
 
   const offsetRef = useRef(0); // clientNowSec - serverNow
   const endedRef = useRef(false);
@@ -51,7 +52,7 @@ export default function MatchScreen() {
   const applyState = useCallback((s: any) => {
     offsetRef.current = Date.now() / 1000 - s.server_now;
     setState(s);
-    if (s.results) endedRef.current = true;
+    if (s.phase === "ended") endedRef.current = true;
   }, []);
 
   const fetchState = useCallback(async () => {
@@ -63,14 +64,61 @@ export default function MatchScreen() {
     }
   }, [id, applyState]);
 
-  // Poll match state
+  // Real-time transport: WebSocket with automatic fallback to HTTP polling.
   useEffect(() => {
-    fetchState();
-    const iv = setInterval(() => {
-      if (!endedRef.current) fetchState();
-    }, 700);
-    return () => clearInterval(iv);
-  }, [fetchState]);
+    let ws: WebSocket | null = null;
+    let poll: ReturnType<typeof setInterval> | null = null;
+    let cancelled = false;
+
+    const startPolling = () => {
+      if (poll || cancelled) return;
+      poll = setInterval(() => {
+        if (!endedRef.current) fetchState();
+      }, 700);
+    };
+    const stopPolling = () => {
+      if (poll) {
+        clearInterval(poll);
+        poll = null;
+      }
+    };
+
+    (async () => {
+      await fetchState(); // instant first paint regardless of transport
+      if (cancelled) return;
+      const token = await getToken();
+      if (!token) {
+        startPolling();
+        return;
+      }
+      try {
+        ws = new WebSocket(matchWsUrl(id, token));
+        ws.onmessage = (e) => {
+          try {
+            applyState(JSON.parse(e.data));
+          } catch {
+            /* ignore malformed frame */
+          }
+        };
+        ws.onerror = () => startPolling();
+        ws.onclose = () => {
+          if (!cancelled && !endedRef.current) startPolling();
+        };
+      } catch {
+        startPolling();
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      stopPolling();
+      try {
+        ws?.close();
+      } catch {
+        /* ignore */
+      }
+    };
+  }, [id, fetchState, applyState]);
 
   // Client-side personal danger animation (resets only on MY press)
   useEffect(() => {
@@ -153,15 +201,30 @@ export default function MatchScreen() {
 
   const dColor = dangerColor(localDanger);
 
-  // ---- Results overlay ----
-  if (state?.results) {
-    return <ResultsView results={state.results} skinColor={skinColor} username={user?.username} oldXp={user?.progression?.xp ?? 0} victoryAnim={user?.equipped_cosmetics?.victory_anim} onExit={leave} />;
+  const matchResults = state?.results || state?.my_result;
+  const matchEnded = state?.phase === "ended";
+
+  // ---- Results overlay (auto on match end, or when a spectator opts in) ----
+  if (matchResults && (matchEnded || showResults)) {
+    return <ResultsView results={matchResults} skinColor={skinColor} username={user?.username} oldXp={user?.progression?.xp ?? 0} victoryAnim={user?.equipped_cosmetics?.victory_anim} onExit={leave} />;
   }
 
   // ---- Lobby ----
   if (state && state.phase === "lobby") {
     return (
-      <LobbyView state={state} insets={insets} onCancel={leave} />
+      <LobbyView state={state} insets={insets} onCancel={leave} onStart={startNow} />
+    );
+  }
+
+  // ---- Spectator (eliminated but the match is still running) ----
+  if (state && state.phase === "active" && me && !me.alive) {
+    return (
+      <SpectatorView
+        state={state}
+        insets={insets}
+        onViewResults={() => setShowResults(true)}
+        onExit={leave}
+      />
     );
   }
 
@@ -398,6 +461,77 @@ function LobbyView({ state, insets, onCancel, onStart }: any) {
     </View>
   );
 }
+
+function SpectatorView({ state, insets, onViewResults, onExit }: any) {
+  const me = state.me;
+  const placement = me?.placement;
+  return (
+    <View style={styles.root} testID="spectator-screen">
+      <LinearGradient
+        colors={["#160303", "#0C0202", colors.surface]}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={{ paddingTop: insets.top + space.xl, paddingHorizontal: space.xl, flex: 1 }}>
+        <View style={styles.specHeader}>
+          <MaterialCommunityIcons name="eye" size={18} color={colors.amber} />
+          <Text style={styles.specTag}>SPECTATING</Text>
+        </View>
+
+        <View style={styles.specHero}>
+          <MaterialCommunityIcons name="skull" size={44} color={colors.red} />
+          <Text style={styles.specOut}>YOU'RE OUT</Text>
+          {placement ? (
+            <Text style={styles.specPlace} testID="spectator-placement">Eliminated at #{placement} of 100</Text>
+          ) : null}
+        </View>
+
+        <View style={styles.specStatsRow}>
+          <View style={styles.specStat}>
+            <Text style={styles.specStatNum} testID="spectator-remaining">{state.players_alive}</Text>
+            <Text style={styles.specStatCap}>STILL ALIVE</Text>
+          </View>
+          <View style={styles.specStat}>
+            <Text style={[styles.specStatNum, { color: colors.amber }]}>{me?.kills ?? 0}</Text>
+            <Text style={styles.specStatCap}>YOUR KILLS</Text>
+          </View>
+        </View>
+
+        <Text style={styles.specFeedTitle}>LIVE ELIMINATION FEED</Text>
+        <ScrollView style={styles.specFeed} showsVerticalScrollIndicator={false}>
+          {(state.feed || []).length === 0 && (
+            <Text style={styles.feedEmpty}>Awaiting the next press…</Text>
+          )}
+          {(state.feed || []).map((f: any) => (
+            <Text key={f.id} style={styles.specFeedLine} numberOfLines={1}>
+              {f.type === "win" ? (
+                <Text style={{ color: colors.warning }}>👑 {f.victim} WINS</Text>
+              ) : f.self ? (
+                <Text><Text style={{ color: colors.red }}>{f.victim}</Text> panicked</Text>
+              ) : (
+                <Text>
+                  <Text style={{ color: colors.amber }}>{f.killer}</Text>
+                  {" ✕ "}
+                  <Text style={{ color: colors.onSurface3 }}>{f.victim}</Text>
+                </Text>
+              )}
+            </Text>
+          ))}
+        </ScrollView>
+      </View>
+
+      <View style={{ padding: space.xl, paddingBottom: insets.bottom + space.xl, gap: space.md }}>
+        <Pressable testID="spectator-results-btn" onPress={onViewResults} style={styles.specResultsBtn}>
+          <MaterialCommunityIcons name="poll" size={20} color={colors.surface} />
+          <Text style={styles.specResultsText}>VIEW MY RESULTS</Text>
+        </Pressable>
+        <Pressable testID="spectator-leave-btn" onPress={onExit} style={styles.cancelBtn}>
+          <Text style={styles.cancelText}>LEAVE TO MENU</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 
 function makeTaunt(results: any, username: string): string {
   const p = results.placement;
@@ -998,4 +1132,42 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   adCountdownText: { fontFamily: font.semi, fontSize: type.base, color: colors.muted },
+  // spectator
+  specHeader: { flexDirection: "row", alignItems: "center", gap: space.xs, alignSelf: "center", marginBottom: space.lg },
+  specTag: { fontFamily: font.displaySemi, fontSize: type.lg, color: colors.amber, letterSpacing: 3 },
+  specHero: { alignItems: "center", gap: space.xs, marginBottom: space.xl },
+  specOut: { fontFamily: font.displayBold, fontSize: 40, color: colors.red, letterSpacing: 1 },
+  specPlace: { fontFamily: font.semi, fontSize: type.lg, color: colors.onSurface2 },
+  specStatsRow: { flexDirection: "row", gap: space.md, marginBottom: space.xl },
+  specStat: {
+    flex: 1,
+    backgroundColor: colors.surface2,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: space.lg,
+    alignItems: "center",
+  },
+  specStatNum: { fontFamily: font.displayBold, fontSize: 40, color: colors.onSurface, lineHeight: 44 },
+  specStatCap: { fontFamily: font.medium, fontSize: type.sm, color: colors.muted, letterSpacing: 0.5 },
+  specFeedTitle: { fontFamily: font.semi, fontSize: type.sm, color: colors.muted, letterSpacing: 1, marginBottom: space.sm },
+  specFeed: {
+    flex: 1,
+    backgroundColor: "rgba(20,20,26,0.6)",
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: space.lg,
+  },
+  specFeedLine: { fontFamily: font.medium, fontSize: type.base, marginBottom: 6, color: colors.onSurface2 },
+  specResultsBtn: {
+    height: 56,
+    borderRadius: radius.md,
+    backgroundColor: colors.amber,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: space.sm,
+  },
+  specResultsText: { fontFamily: font.displayBold, fontSize: type.xl, color: colors.surface, letterSpacing: 1 },
 });

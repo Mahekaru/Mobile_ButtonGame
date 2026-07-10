@@ -35,6 +35,7 @@ export default function PlayScreen() {
   const { user, refresh, changeName } = useAuth();
   const [searching, setSearching] = useState(false);
   const [reward, setReward] = useState<any>(null);
+  const [challengeSummary, setChallengeSummary] = useState<{ completed: number; total: number } | null>(null);
   const [claiming, setClaiming] = useState(false);
   const [claimed, setClaimed] = useState<{ amount: number; weekly: boolean } | null>(null);
   const [nameInput, setNameInput] = useState("");
@@ -48,6 +49,12 @@ export default function PlayScreen() {
   const loadRewards = useCallback(async () => {
     try {
       setReward(await api.rewardsStatus());
+    } catch {
+      /* ignore */
+    }
+    try {
+      const c = await api.challenges();
+      setChallengeSummary({ completed: c.completed, total: c.total });
     } catch {
       /* ignore */
     }
@@ -171,6 +178,13 @@ export default function PlayScreen() {
             </View>
           </Pressable>
           <Pressable
+            testID="leaderboard-btn"
+            onPress={() => router.push("/leaderboard")}
+            style={[styles.iconBtn, { marginRight: space.sm }]}
+          >
+            <MaterialCommunityIcons name="trophy" size={20} color={colors.amber} />
+          </Pressable>
+          <Pressable
             testID="party-btn"
             onPress={() => {
               setPartyErr(null);
@@ -220,6 +234,26 @@ export default function PlayScreen() {
             </View>
           </View>
         )}
+
+        {/* Daily challenges */}
+        <Pressable
+          testID="challenges-card"
+          style={styles.challengeCard}
+          onPress={() => router.push("/challenges")}
+        >
+          <View style={styles.challengeIcon}>
+            <MaterialCommunityIcons name="target" size={22} color={colors.amber} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.challengeTitle}>DAILY CHALLENGES</Text>
+            <Text style={styles.challengeSub}>
+              {challengeSummary
+                ? `${challengeSummary.completed}/${challengeSummary.total} complete today`
+                : "Earn bonus XP every day"}
+            </Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.muted} />
+        </Pressable>
 
         {/* Rank card */}
         <Pressable style={styles.rankCard} testID="rank-card" onPress={() => router.push("/(tabs)/rank")}>
@@ -454,6 +488,28 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: space.lg,
   },
+  challengeCard: {
+    marginHorizontal: space.xl,
+    marginBottom: space.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.md,
+    backgroundColor: colors.surface2,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: space.md,
+  },
+  challengeIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    backgroundColor: "#2B2200",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  challengeTitle: { fontFamily: font.displaySemi, fontSize: type.lg, color: colors.onSurface, letterSpacing: 0.5 },
+  challengeSub: { fontFamily: font.regular, fontSize: type.sm, color: colors.onSurface3, marginTop: 1 },
   rankTop: { flexDirection: "row", alignItems: "center", gap: space.md, marginBottom: space.md },
   rankBadge: {
     width: 44,

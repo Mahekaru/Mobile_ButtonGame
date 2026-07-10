@@ -3,7 +3,7 @@ const MAX_LEVEL = 50;
 
 export function xpForLevel(level: number): number {
   if (level <= 1) return 0;
-  return Math.floor((100 * (level - 1) * level) / 2);
+  return Math.floor(100 * (level - 1) * level);
 }
 
 export function levelForXp(xp: number): number {

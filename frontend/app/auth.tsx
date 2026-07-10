@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, StyleSheet, Text, TextInput } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -19,10 +19,16 @@ const BG =
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { enterAsGuest } = useAuth();
+  const { enterAsGuest, user } = useAuth();
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // If an authenticated session becomes available (e.g. cold reload lands
+  // here before bootstrap resolves), route straight into the app.
+  useEffect(() => {
+    if (user) router.replace("/(tabs)");
+  }, [user, router]);
 
   const submit = async () => {
     setError(null);
