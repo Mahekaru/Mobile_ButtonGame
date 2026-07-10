@@ -67,8 +67,8 @@ export default function AuthScreen() {
         <View style={styles.brandRow}>
           <MaterialCommunityIcons name="alert-octagon" size={40} color={colors.red} />
         </View>
-        <Text style={styles.title}>PANIC BUTTON</Text>
-        <Text style={styles.subtitle}>100 enter. One survives. Don&apos;t press it wrong.</Text>
+        <Text style={styles.title}>PRESSURE</Text>
+        <Text style={styles.subtitle}>100 players. One button. Every press eliminates someone. It could be you.</Text>
 
         <View style={styles.card} testID="auth-card">
           <Text style={styles.label}>CHOOSE YOUR CALLSIGN</Text>

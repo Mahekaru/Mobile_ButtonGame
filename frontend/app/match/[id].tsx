@@ -143,13 +143,13 @@ export default function MatchScreen() {
       text = "ABILITY SAVED YOU!";
       tone = colors.success;
     } else if (outcome.self_death) {
-      text = "YOU PANICKED";
+      text = "SELF-ELIMINATION";
       tone = colors.red;
     } else if (outcome.victims.length > 1) {
       text = `DOUBLE KILL: ${outcome.victims.join(" & ")}`;
       tone = colors.amber;
     } else if (outcome.victims.length === 1) {
-      text = `ELIMINATED: ${outcome.victims[0]}`;
+      text = "PLAYER ELIMINATED";
       tone = colors.amber;
     } else {
       text = "SURVIVED";
@@ -331,7 +331,7 @@ export default function MatchScreen() {
 
       {/* Center: danger + button */}
       <View style={styles.center}>
-        <Text style={styles.dangerLabel}>DANGER</Text>
+        <Text style={styles.dangerLabel}>PRESSURE</Text>
         <Text style={[styles.dangerNum, { color: dColor }]} testID="danger-pct">
           {Math.round(localDanger)}%
         </Text>
@@ -359,7 +359,7 @@ export default function MatchScreen() {
 
         <Text style={styles.hint}>
           {me?.alive
-            ? "The longer you hold, the more XP you bank — but your danger keeps rising."
+            ? "The longer you hold, the more XP you bank — but your pressure keeps rising."
             : "You are spectating…"}
         </Text>
         {me?.alive && (me?.hold_xp ?? 0) > 0 && (
@@ -416,7 +416,7 @@ function LobbyView({ state, insets, onCancel, onStart }: any) {
             testID="party-code-share"
             onPress={() =>
               Share.share({
-                message: `Join my PANIC BUTTON party! Code: ${state.party_code} — last one alive wins.`,
+                message: `Join my PRESSURE party! Code: ${state.party_code} — last one alive wins.`,
               }).catch(() => {})
             }
             style={styles.partyCodeBox}
@@ -806,7 +806,7 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
     if (sharing) return;
     setSharing(true);
     Haptics.selectionAsync();
-    const message = `${taunt}\n\n🔴 PANIC BUTTON — 100 enter, one survives. Can you beat me?`;
+    const message = `${taunt}\n\n🔴 PRESSURE — 100 enter, one survives. Can you beat me?`;
     try {
       if (Platform.OS !== "web" && cardRef.current && (await Sharing.isAvailableAsync())) {
         const uri = await captureRef(cardRef, { format: "png", quality: 0.95 });
@@ -840,7 +840,7 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
         <View ref={cardRef} collapsable={false} style={styles.recapCard} testID="recap-card">
           <View style={styles.recapHead}>
             <MaterialCommunityIcons name="alert-octagon" size={18} color={colors.red} />
-            <Text style={styles.recapBrand}>PANIC BUTTON</Text>
+            <Text style={styles.recapBrand}>PRESSURE</Text>
           </View>
           <MaterialCommunityIcons
             name={won ? "trophy" : "skull"}
@@ -848,7 +848,7 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
             color={won ? colors.warning : colors.red}
           />
           <Text style={[styles.resultTitle, { color: won ? colors.warning : colors.red }]}>
-            {won ? "LAST ALIVE" : "ELIMINATED"}
+            {won ? "YOU SURVIVED" : results.self_eliminated ? "SELF-ELIMINATION" : "YOU WERE ELIMINATED"}
           </Text>
           <Text style={styles.recapUser}>{username}</Text>
           <Text style={styles.resultPlace} testID="result-placement">
@@ -1007,7 +1007,7 @@ function AdOverlay({ mode, reward, onSkip, onClaim, onProceed }: any) {
           </View>
         </LinearGradient>
         {mandatory ? (
-          <Text style={styles.adRewardLine}>Sponsored break — thanks for playing Panic Button!</Text>
+          <Text style={styles.adRewardLine}>Sponsored break — thanks for playing Pressure!</Text>
         ) : claimed ? (
           <Text style={[styles.adRewardLine, { color: colors.success }]} testID="ad-claimed">
             DOUBLE XP! +{reward} bonus applied 🎉

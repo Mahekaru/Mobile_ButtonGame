@@ -39,7 +39,7 @@ export const ABILITY_META: Record<
     name: "Overcharge",
     icon: "lightning-bolt",
     type: "active",
-    short: "3x XP · +15% danger",
+    short: "3x XP · +15% pressure",
   },
   adrenaline: {
     name: "Adrenaline",
@@ -51,7 +51,7 @@ export const ABILITY_META: Record<
     name: "Steady Hand",
     icon: "timer-sand",
     type: "active",
-    short: "Freeze danger 6s",
+    short: "Freeze pressure 6s",
   },
   failsafe: {
     name: "Failsafe",

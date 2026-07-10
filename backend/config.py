@@ -127,7 +127,7 @@ ABILITIES = [
         "id": "overcharge", "name": "Overcharge", "icon": "lightning-bolt",
         "unlock_level": 22,
         "type": "active",
-        "desc": "Once per match: TRIPLE your match XP, but your danger rises +15% for the rest of the match.",
+        "desc": "Once per match: TRIPLE your match XP, but your pressure rises +15% for the rest of the match.",
     },
     {
         "id": "adrenaline", "name": "Adrenaline", "icon": "run-fast",
@@ -139,7 +139,7 @@ ABILITIES = [
         "id": "steady", "name": "Steady Hand", "icon": "timer-sand",
         "unlock_level": 40,
         "type": "active",
-        "desc": "Once per match: freeze your danger meter for 6 seconds after you press.",
+        "desc": "Once per match: freeze your pressure meter for 6 seconds after you press.",
     },
     {
         "id": "failsafe", "name": "Failsafe", "icon": "shield-check",

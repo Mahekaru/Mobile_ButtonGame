@@ -131,6 +131,12 @@ Multiplayer battle-royale game around a single shared button. 100 players; any l
 - MAX_LEVEL kept at 50 (reverted the brief 100 experiment). XP curve unchanged: cumulative 100·(n-1)·n → per-level cost 200·(n-1) (standard RPG: early levels quick, later progressively harder; L2=200 … L50=+9,800, cumulative 245,000).
 - Rank tiers restored to Rookie→Legend (1–30), with a final milestone **Immortal at Level 50**. Rank roadmap screen (rank.tsx) now lists EVERY level 1–50 (no skips): level badge, rank tier shown at tier-starts, XP needed to reach that level, and ability/cosmetic unlock callouts. Reached/current levels highlighted.
 
+## Update — Rebrand to "Pressure" + terminology (2026-06)
+- Game renamed **Panic Button → PRESSURE** across all user-facing text (auth title, recap brand, share/party/friends messages, ad line).
+- New tagline: "100 players. One button. Every press eliminates someone. It could be you."
+- Outcome copy: in-match reveal — own kill = "PLAYER ELIMINATED", self = "SELF-ELIMINATION"; results title — win = "YOU SURVIVED", self = "SELF-ELIMINATION", killed by another = "YOU WERE ELIMINATED".
+- All user-facing "Danger" → "Pressure" (match HUD label "PRESSURE", hint text, ability descriptions in config.py + catalog.ts). Internal code identifiers (dangerColor/dangerLabel/state.danger keys) unchanged — layout/functionality/style untouched.
+
 ## Known residual (low priority)
 - RN-Web warning `props.pointerEvents is deprecated` at match/[id].tsx reveal banner (web-only cosmetic).
 - IBM Plex TTFs fail to decode via preview proxy (web-only; native builds load fine).

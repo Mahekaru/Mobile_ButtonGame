@@ -39,7 +39,7 @@ export default function FriendsScreen() {
     Haptics.selectionAsync();
     try {
       await Share.share({
-        message: `Think you can survive PANIC BUTTON? Add me and I'll knock you out first. My code: ${code}`,
+        message: `Think you can survive PRESSURE? Add me and I'll knock you out first. My code: ${code}`,
       });
     } catch {
       /* dismissed */
