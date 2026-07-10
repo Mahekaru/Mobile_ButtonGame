@@ -13,7 +13,7 @@ import requests
 
 BASE = os.environ["EXPO_PUBLIC_BACKEND_URL"].rstrip("/") + "/api" \
     if os.environ.get("EXPO_PUBLIC_BACKEND_URL") else \
-    "https://danger-meter-3.preview.emergentagent.com/api"
+    "https://button-royale-pvp.preview.emergentagent.com/api"
 
 # ---------------------------------------------------------------------------
 # Fixtures

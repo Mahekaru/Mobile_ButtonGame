@@ -9,7 +9,7 @@ import pytest
 import requests
 
 BASE = (os.environ.get("EXPO_PUBLIC_BACKEND_URL")
-        or "https://danger-meter-3.preview.emergentagent.com").rstrip("/") + "/api"
+        or "https://button-royale-pvp.preview.emergentagent.com").rstrip("/") + "/api"
 
 
 def h(tok):
