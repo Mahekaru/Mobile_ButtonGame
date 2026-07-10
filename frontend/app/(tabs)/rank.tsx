@@ -21,8 +21,9 @@ const LEVEL_UNLOCKS: Record<number, string> = {
   50: "MAX RANK · Unlocks: Immortality ability + Immortal title",
 };
 
-// Every level 1..MAX_LEVEL, with the XP needed to reach it, its rank tier,
-// whether that level starts a new tier, and any unlock text.
+// Every level 1..MAX_LEVEL, with the CUMULATIVE lifetime XP required to reach
+// it (matches the backend rank thresholds), its rank tier, whether that level
+// starts a new tier, and any unlock text.
 const LEVELS = Array.from({ length: MAX_LEVEL }, (_, i) => {
   const level = i + 1;
   const rank = rankName(level);
@@ -30,7 +31,7 @@ const LEVELS = Array.from({ length: MAX_LEVEL }, (_, i) => {
     level,
     rank,
     isTierStart: level === 1 || rankName(level - 1) !== rank,
-    xpNeeded: level <= 1 ? 0 : xpForLevel(level) - xpForLevel(level - 1),
+    xpTotal: xpForLevel(level),
     unlock: LEVEL_UNLOCKS[level],
   };
 });
@@ -103,7 +104,7 @@ export default function RankScreen() {
                 )}
               </View>
               <Text style={[styles.tierLevel, reached && { color: colors.amber }]}>
-                {lv.level === 1 ? "START" : `${lv.xpNeeded.toLocaleString()} XP`}
+                {lv.level === 1 ? "0 XP" : `${lv.xpTotal.toLocaleString()} XP`}
               </Text>
             </View>
           );

@@ -114,7 +114,15 @@ Multiplayer battle-royale game around a single shared button. 100 players; any l
 - **Fixes**: auth screen auto-redirects to /(tabs) when session becomes valid (iter9 residual resolved); client progression mirror xpForLevel aligned to backend curve (removed erroneous /2).
 - Verified: 10/10 new backend tests + full frontend flows (leaderboard, challenges, WS match, spectator, auth redirect).
 
-## Update — Milestone XP curve + Level-50 capstone rewards (2026-06)
+## Update — Rank XP progression bug fix (2026-06)
+- **Root cause:** the old XP_TABLE used constant per-tier increments (e.g. ranks 26–30 each cost +1,000), so consecutive higher ranks displayed identical XP-to-next requirements.
+- **Fix (single authoritative source):** `config.rank_threshold(rank)` = `tierStartXp + 10000·pow(tierProgress, 1.6)` rounded to nearest 100 — an eased curve within each 10-rank tier (early ranks cheap, later ranks steeper), with milestones landing exactly on rank×1000: **R10=10k · R20=20k · R30=30k · R40=40k · R50=50k**. Thresholds strictly increasing, no consecutive duplicates. Rank 1 = 0 XP. `progression.ts` mirrors it (backend authoritative).
+- **Milestone abilities** remapped to unlock ranks **3, 6, 10, 14, 18, 22, 27, 33, 40, 50** (one per milestone).
+- **Preserve/idempotent unlocks:** new persistent `unlocked_abilities` set synced in `get_current_user` — additive (never revoked, keeps equipped ability, survives curve changes) and idempotent (writes only when the set grows, so re-login/XP-recalc never re-unlocks). `/abilities` + equip now gate on this set.
+- **Progress bar** uses current-rank threshold → next-rank threshold, counting only in-rank XP (`progression_snapshot`). Rank roadmap now shows cumulative total XP per level (strictly increasing).
+- **Validation:** `tests/test_rank_progression.py` (9/9) + live API `tests/test_iteration13_rank_bug_fix.py` (9/9) — full 18/18 via testing_agent; frontend roadmap verified (all 50 levels, unlock labels, L50 Immortal capstone).
+
+
 - **XP curve** reworked to a hand-tuned cumulative table (config.py XP_TABLE, mirrored in progression.ts). Early levels cheap, later progressively pricier. Round milestones: L10=2,000 · L15=4,000 · L20=7,000 · L25=11,000 · L30=16,000 · L35=22,000 · L40=30,000 · L45=42,000 · L50=60,000 (max). Per-level cost rises from +100 (L2) to +3,600 (L46–50).
 - **Level 50 = "Immortal"** final milestone tier, and reaching it unlocks TWO exclusive rewards: (1) new capstone ability **Immortality** (active, unlock_level 50 — once/match become fully untargetable + press-safe for 8s; game.py resolve_press branch), and (2) **Immortal** title cosmetic (unlock_level 50).
 - Rank roadmap lists every level 1–50 with XP-to-reach + unlock callouts; L50 row shows "MAX RANK · Unlocks: Immortality ability + Immortal title".
