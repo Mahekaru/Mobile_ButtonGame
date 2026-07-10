@@ -6,7 +6,7 @@ import time
 import pytest
 import requests
 
-BASE = "https://panic-4.preview.emergentagent.com/api"
+BASE = "https://button-battle-4.preview.emergentagent.com/api"
 
 
 # ---------------------------------------------------------------------------
