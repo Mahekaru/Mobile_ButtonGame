@@ -282,7 +282,7 @@ export default function MatchScreen() {
             <Text style={[styles.statNum, { color: colors.amber }]} testID="kill-count">
               {me?.kills ?? 0}
             </Text>
-            <Text style={styles.statCap}>KILLS · {me?.protection ?? 0}% PROT</Text>
+            <Text style={styles.statCap}>KILLS · {me?.protection ?? 0}% PROTECTION</Text>
           </GlassCard>
         </View>
       </View>
