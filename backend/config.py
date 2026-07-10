@@ -25,9 +25,20 @@ PROTECTION_PER_KILL = 0.015
 PROTECTION_CAP = 0.15      # reached at 10 kills
 PROTECTION_MAX_KILLS = 10
 
+# Protection decays the longer a player waits without pressing: it starts full
+# right after a press and linearly falls to zero over this window (seconds).
+PROTECTION_DECAY_WINDOW = 20.0
+
 
 def protection_for(kills: int) -> float:
     return min(PROTECTION_CAP, max(0, kills) * PROTECTION_PER_KILL)
+
+
+def protection_after_wait(kills: int, wait_seconds: float) -> float:
+    """Kill-based protection, decayed by how long the player has waited since
+    their last press. Longer wait -> lower protection (down to 0)."""
+    decay = max(0.0, 1.0 - max(0.0, wait_seconds) / PROTECTION_DECAY_WINDOW)
+    return protection_for(kills) * decay
 
 
 # ---------------------------------------------------------------------------

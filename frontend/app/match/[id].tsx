@@ -35,6 +35,7 @@ export default function MatchScreen() {
 
   const [state, setState] = useState<any>(null);
   const [localDanger, setLocalDanger] = useState(5);
+  const [localProtection, setLocalProtection] = useState(0);
   const [armed, setArmed] = useState(false);
   const [pressing, setPressing] = useState(false);
   const [reveal, setReveal] = useState<{ text: string; tone: string } | null>(null);
@@ -125,6 +126,7 @@ export default function MatchScreen() {
     const iv = setInterval(() => {
       if (!state || state.phase !== "active" || !state.me) {
         setLocalDanger(state?.config?.base ?? 5);
+        setLocalProtection(0);
         return;
       }
       const nowSec = Date.now() / 1000 - offsetRef.current;
@@ -132,6 +134,13 @@ export default function MatchScreen() {
       const { base, slope, cap } = state.config;
       const d = Math.max(base, Math.min(cap, base + elapsed * slope));
       setLocalDanger(d);
+      // Protection decays the longer you wait since your last press.
+      const perKill = state.config.protection_per_kill ?? 0.015;
+      const pCap = state.config.protection_cap ?? 0.15;
+      const window = state.config.protection_window ?? 20;
+      const baseProt = Math.min(pCap, (state.me.kills ?? 0) * perKill);
+      const decay = Math.max(0, 1 - elapsed / window);
+      setLocalProtection(Math.round(baseProt * decay * 100));
     }, 100);
     return () => clearInterval(iv);
   }, [state]);
@@ -282,7 +291,7 @@ export default function MatchScreen() {
             <Text style={[styles.statNum, { color: colors.amber }]} testID="kill-count">
               {me?.kills ?? 0}
             </Text>
-            <Text style={styles.statCap}>KILLS · {me?.protection ?? 0}% PROTECTION</Text>
+            <Text style={styles.statCap}>KILLS · {localProtection}% PROTECTION</Text>
           </GlassCard>
         </View>
       </View>

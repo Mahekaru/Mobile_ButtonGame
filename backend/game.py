@@ -38,11 +38,14 @@ from config import (
     HOLD_XP_PER_SEC,
     LATE_TENSION,
     PERSONALITY_WEIGHTS,
+    PROTECTION_CAP,
+    PROTECTION_DECAY_WINDOW,
+    PROTECTION_PER_KILL,
     RIVAL_KO_BONUS,
     compute_match_xp,
     level_for_xp,
     make_bot_name,
-    protection_for,
+    protection_after_wait,
     roll_threshold,
 )
 import seasons as S
@@ -231,7 +234,7 @@ class Match:
                 and not (p.hidden_until and t < p.hidden_until)]
         if not pool:
             return None
-        weights = [max(0.02, 1.0 - protection_for(p.kills)) for p in pool]
+        weights = [max(0.02, 1.0 - protection_after_wait(p.kills, t - p.last_press_at)) for p in pool]
         return random.choices(pool, weights=weights, k=1)[0]
 
     def resolve_press(self, presser_pid: str, use_ability: bool) -> Optional[dict]:
@@ -244,7 +247,7 @@ class Match:
 
         wait_seconds = now() - presser.last_press_at
         danger = self.danger_for(presser)
-        self_chance = (danger / 100.0) * (1.0 - protection_for(presser.kills))
+        self_chance = (danger / 100.0) * (1.0 - protection_after_wait(presser.kills, wait_seconds))
 
         ability_note = None
         double_tap = False
@@ -475,6 +478,9 @@ class Match:
                 "base": GAME_CONFIG["danger_base"],
                 "slope": round(self.eff_slope(), 3),
                 "cap": GAME_CONFIG["danger_cap"],
+                "protection_per_kill": PROTECTION_PER_KILL,
+                "protection_cap": PROTECTION_CAP,
+                "protection_window": PROTECTION_DECAY_WINDOW,
             },
             "feed": self.feed[-14:][::-1],
         }
@@ -491,7 +497,7 @@ class Match:
                 "name": me.name,
                 "alive": me.alive,
                 "kills": me.kills,
-                "protection": round(protection_for(me.kills) * 100),
+                "protection": round(protection_after_wait(me.kills, now() - me.last_press_at) * 100),
                 "ability": me.ability,
                 "ability_used": me.ability_used,
                 "placement": me.placement,
