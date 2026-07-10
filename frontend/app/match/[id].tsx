@@ -516,10 +516,80 @@ function useMandatoryAdExit(onExit: () => void) {
   return { handleExit, busy, AdPortal };
 }
 
+// Opt-in DOUBLE-XP ad (offered at random when a match reward is available).
+// Watching fully grants double the match XP; skipping grants nothing. Used on
+// the Spectator "out" screen (and the Results screen for winners).
+function useDoubleXpAd() {
+  const { user } = useAuth();
+  const [reward, setReward] = useState(0);
+  const [offered, setOffered] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [showAd, setShowAd] = useState(false);
+  const [claimed, setClaimed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    api
+      .adsStatus()
+      .then((s) => {
+        if (!active) return;
+        setReward(s.reward);
+        setOffered(s.reward_available && Math.random() < 0.5);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const claimAd = async () => {
+    try {
+      await api.claimAdReward();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleDoubleXp = async () => {
+    if (busy) return;
+    if (adsSupported) {
+      setBusy(true);
+      const outcome = await showRewardedInterstitial(user?.id || "guest");
+      if (outcome === "earned") await claimAd();
+      setBusy(false);
+      setOffered(false);
+      setClaimed(true);
+      return;
+    }
+    setShowAd(true);
+  };
+
+  const AdPortal = showAd ? (
+    <AdOverlay
+      mode="double"
+      reward={reward}
+      onSkip={() => {
+        setShowAd(false);
+        setOffered(false);
+      }}
+      onClaim={claimAd}
+      onProceed={() => {
+        setShowAd(false);
+        setOffered(false);
+        setClaimed(true);
+      }}
+    />
+  ) : null;
+
+  return { offered, reward, busy, claimed, handleDoubleXp, AdPortal };
+}
+
 function SpectatorView({ state, insets, onViewResults, onExit }: any) {
   const me = state.me;
   const placement = me?.placement;
   const { handleExit, busy, AdPortal } = useMandatoryAdExit(onExit);
+  const dxp = useDoubleXpAd();
   return (
     <View style={styles.root} testID="spectator-screen">
       <LinearGradient
@@ -575,6 +645,25 @@ function SpectatorView({ state, insets, onViewResults, onExit }: any) {
       </View>
 
       <View style={{ padding: space.xl, paddingBottom: insets.bottom + space.xl, gap: space.md }}>
+        {dxp.offered && !dxp.claimed && (
+          <Pressable
+            testID="spectator-double-xp-btn"
+            disabled={dxp.busy}
+            onPress={dxp.handleDoubleXp}
+            style={styles.specDoubleXpBtn}
+          >
+            <MaterialCommunityIcons name="star-four-points" size={20} color={colors.surface} />
+            <Text style={styles.specDoubleXpText}>
+              {dxp.busy ? "LOADING AD…" : `WATCH AD · DOUBLE XP (+${dxp.reward})`}
+            </Text>
+          </Pressable>
+        )}
+        {dxp.claimed && (
+          <View style={styles.specDoubleXpDone} testID="spectator-double-xp-done">
+            <MaterialCommunityIcons name="check-bold" size={18} color={colors.success} />
+            <Text style={styles.specDoubleXpDoneText}>DOUBLE XP APPLIED · +{dxp.reward}</Text>
+          </View>
+        )}
         <Pressable testID="spectator-results-btn" onPress={onViewResults} style={styles.specResultsBtn}>
           <MaterialCommunityIcons name="poll" size={20} color={colors.surface} />
           <Text style={styles.specResultsText}>VIEW MY RESULTS</Text>
@@ -584,6 +673,7 @@ function SpectatorView({ state, insets, onViewResults, onExit }: any) {
         </Pressable>
       </View>
       {AdPortal}
+      {dxp.AdPortal}
     </View>
   );
 }
@@ -834,7 +924,7 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
       </ScrollView>
 
       <View style={[styles.resultFooter, { paddingBottom: insets.bottom + space.xl }]}>
-        {offerDoubleXp && (
+        {offerDoubleXp && won && (
           <Pressable
             testID="double-xp-btn"
             disabled={busy}
@@ -1296,4 +1386,26 @@ const styles = StyleSheet.create({
     gap: space.sm,
   },
   specResultsText: { fontFamily: font.displayBold, fontSize: type.xl, color: colors.surface, letterSpacing: 1 },
+  specDoubleXpBtn: {
+    height: 56,
+    borderRadius: radius.md,
+    backgroundColor: colors.amber,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: space.sm,
+  },
+  specDoubleXpText: { fontFamily: font.displayBold, fontSize: type.lg, color: colors.surface, letterSpacing: 0.5 },
+  specDoubleXpDone: {
+    height: 48,
+    borderRadius: radius.md,
+    backgroundColor: "#0E2A14",
+    borderWidth: 1,
+    borderColor: colors.success,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: space.sm,
+  },
+  specDoubleXpDoneText: { fontFamily: font.displaySemi, fontSize: type.base, color: colors.success, letterSpacing: 0.5 },
 });
