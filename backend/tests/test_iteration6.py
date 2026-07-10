@@ -4,9 +4,9 @@
      - After join+leave: reward>0, reward_available=True, mandatory_due=True
      - /ads/seen sets 3-min cooldown -> mandatory_due=False, cooldown_remaining~180
      - /ads/reward claims double-XP -> reward_available=False, mandatory_due=False; second call -> 400
-  2. Steeper XP curve: xp_for_level(2)=200, xp_for_level(5)=2000
+  2. Eased rank curve: rank_threshold(2)=800, rank_threshold(5)=3300
      - Compute XP for a single average match is small (<200) -> no multi-level jump
-  3. Abilities catalog: /abilities returns 8 items including hide/overcharge/adrenaline/steady
+  3. Abilities catalog: /abilities returns 10 items including hide/overcharge/adrenaline/steady
   4. Equipping new active abilities (once unlocked via direct XP bump in DB) succeeds
   5. Match with new abilities completes without server error
 """
@@ -150,8 +150,8 @@ class TestXpCurve:
         assert r.status_code == 200
         prog = r.json()["user"]["progression"]
         assert prog["xp"] == 125
-        assert prog["level"] == 1, f"expected L1 with 125 xp (L2=200), got {prog}"
-        assert prog["xp_for_next"] == 200  # 100*(2-1)*2
+        assert prog["level"] == 1, f"expected L1 with 125 xp (L2=800), got {prog}"
+        assert prog["xp_for_next"] == 800  # rank_threshold(2)
 
     def test_single_match_xp_is_small(self):
         """A single average match should not bump multiple levels."""
@@ -163,16 +163,16 @@ class TestXpCurve:
         assert 0 < me["progression"]["xp"] < 200, me["progression"]
 
     def test_math_via_direct_xp_bump(self):
-        """xp_for_level(5) should equal 2000 (100*4*5)."""
+        """rank_threshold(5) should equal 3300; below it stays L4."""
         assert MONGO_URL and DB_NAME
         tok, u = _guest("XpBump")
         cli = MongoClient(MONGO_URL)
         try:
-            cli[DB_NAME].users.update_one({"_id": u["id"]}, {"$set": {"xp": 1999, "level": 4}})
+            cli[DB_NAME].users.update_one({"_id": u["id"]}, {"$set": {"xp": 3299, "level": 4}})
             me = requests.get(f"{BASE}/profile", headers=_hdr(tok), timeout=15).json()["user"]
             assert me["progression"]["level"] == 4  # not yet L5
 
-            cli[DB_NAME].users.update_one({"_id": u["id"]}, {"$set": {"xp": 2000}})
+            cli[DB_NAME].users.update_one({"_id": u["id"]}, {"$set": {"xp": 3300}})
             me = requests.get(f"{BASE}/profile", headers=_hdr(tok), timeout=15).json()["user"]
             assert me["progression"]["level"] == 5
         finally:
@@ -187,7 +187,7 @@ class TestAbilitiesCatalog:
         tok, _ = _guest("AbCat")
         d = requests.get(f"{BASE}/abilities", headers=_hdr(tok), timeout=15).json()
         ids = {a["id"] for a in d["abilities"]}
-        assert len(d["abilities"]) == 8, ids
+        assert len(d["abilities"]) == 10, ids
         for req in ("second_chance", "lucky_press", "deflect", "double_tap",
                     "hide", "overcharge", "adrenaline", "steady"):
             assert req in ids, f"missing ability {req}"
@@ -196,10 +196,10 @@ class TestAbilitiesCatalog:
         tok, _ = _guest("AbLvl")
         d = requests.get(f"{BASE}/abilities", headers=_hdr(tok), timeout=15).json()
         by_id = {a["id"]: a for a in d["abilities"]}
-        assert by_id["hide"]["unlock_level"] == 4 and by_id["hide"]["type"] == "active"
-        assert by_id["overcharge"]["unlock_level"] == 6 and by_id["overcharge"]["type"] == "active"
-        assert by_id["adrenaline"]["unlock_level"] == 8 and by_id["adrenaline"]["type"] == "active"
-        assert by_id["steady"]["unlock_level"] == 10 and by_id["steady"]["type"] == "active"
+        assert by_id["hide"]["unlock_level"] == 14 and by_id["hide"]["type"] == "active"
+        assert by_id["overcharge"]["unlock_level"] == 22 and by_id["overcharge"]["type"] == "active"
+        assert by_id["adrenaline"]["unlock_level"] == 33 and by_id["adrenaline"]["type"] == "active"
+        assert by_id["steady"]["unlock_level"] == 40 and by_id["steady"]["type"] == "active"
         # locked for a fresh guest
         for k in ("hide", "overcharge", "adrenaline", "steady"):
             assert by_id[k]["unlocked"] is False
@@ -217,10 +217,10 @@ def _bump_level(user_id, xp):
 
 
 @pytest.mark.parametrize("ability,min_xp", [
-    ("hide", 1200),          # L4
-    ("overcharge", 3000),    # L6
-    ("adrenaline", 5600),    # L8
-    ("steady", 9000),        # L10
+    ("hide", 12300),         # L14
+    ("overcharge", 20800),   # L22
+    ("adrenaline", 31500),   # L33
+    ("steady", 40000),       # L40
 ])
 class TestNewAbilityEquipAndMatch:
     def test_equip_after_unlock(self, ability, min_xp):

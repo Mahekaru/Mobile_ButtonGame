@@ -3,11 +3,28 @@
   - Cosmetic equip flow (locked/unlocked based on level).
   - Regression on rewarded ad flow (ads/status + ads/reward, cooldown).
 """
+import os
 import time
+import uuid
 import pytest
 import requests
+from pymongo import MongoClient
+from dotenv import load_dotenv
+from pathlib import Path
+
+load_dotenv(Path("/app/backend/.env"))
 
 BASE = "https://panic-ranks.preview.emergentagent.com/api"
+MONGO_URL = os.environ.get("MONGO_URL")
+DB_NAME = os.environ.get("DB_NAME")
+
+
+def _bump(user_id, xp):
+    cli = MongoClient(MONGO_URL)
+    try:
+        cli[DB_NAME].users.update_one({"_id": user_id}, {"$set": {"xp": xp}})
+    finally:
+        cli.close()
 
 
 def _guest(name_prefix="TEST_Iter5"):
@@ -106,12 +123,12 @@ class TestCosmeticEquip:
         assert r.status_code == 403, r.text
 
     def test_daily_claim_unlocks_glow_and_equip_persists(self):
-        tok, _ = _guest()
-        # Claim daily reward (+125 XP -> level 2)
-        r = requests.post(f"{BASE}/rewards/claim", headers=_hdr(tok), timeout=15)
-        assert r.status_code == 200
-        body = r.json()
-        assert body["user"]["progression"]["level"] >= 2, body["user"]["progression"]
+        tok, u = _guest()
+        # Bump XP to L2 (glow unlocks at level 2 => rank_threshold(2)=800 XP)
+        assert MONGO_URL and DB_NAME
+        _bump(u["id"], 800)
+        me = requests.get(f"{BASE}/profile", headers=_hdr(tok), timeout=15).json()["user"]
+        assert me["progression"]["level"] >= 2, me["progression"]
 
         # Now glow should be unlocked
         d = requests.get(f"{BASE}/cosmetics", headers=_hdr(tok), timeout=15).json()

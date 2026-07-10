@@ -104,7 +104,7 @@ class TestAbilities:
         r = s.get(f"{BASE}/abilities", headers=auth_h(fresh_user["token"]))
         assert r.status_code == 200
         d = r.json()
-        assert len(d["abilities"]) == 4
+        assert len(d["abilities"]) == 10
         # At level 1, all abilities locked
         assert all(not a["unlocked"] for a in d["abilities"])
 

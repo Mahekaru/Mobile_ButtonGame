@@ -139,6 +139,6 @@ class TestAdsRegression:
         requests.post(f"{BASE}/match/{mid}/leave", headers=_hdr(tok), timeout=15)
         time.sleep(1.0)
         s = requests.get(f"{BASE}/match/{mid}/state", headers=_hdr(tok), timeout=15).json()
-        # once eliminated, results block is present
-        assert "results" in s, s
-        assert s["results"]["xp_gained"] > 0
+        # once eliminated (match still running), personal recap is under my_result
+        assert "my_result" in s, s
+        assert s["my_result"]["xp_gained"] > 0

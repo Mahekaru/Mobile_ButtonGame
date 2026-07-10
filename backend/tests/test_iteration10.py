@@ -47,20 +47,20 @@ def _auth(session: dict) -> dict:
 # ---------------------------------------------------------------------------
 class TestLeaderboard:
     def test_global_scope_returns_rows_sorted_desc_and_my_rank(self, alice):
-        r = requests.get(f"{API}/leaderboard?scope=global", headers=_auth(alice), timeout=15)
+        r = requests.get(f"{API}/leaderboard?scope=global&period=alltime", headers=_auth(alice), timeout=15)
         assert r.status_code == 200
         data = r.json()
         assert data["scope"] == "global"
         assert isinstance(data["rows"], list)
         assert len(data["rows"]) <= 100
-        # sorted by xp desc
-        xps = [row["xp"] for row in data["rows"]]
-        assert xps == sorted(xps, reverse=True), f"rows must be xp-desc: {xps[:8]}"
+        # sorted by score desc (alltime score == lifetime xp)
+        scores = [row["score"] for row in data["rows"]]
+        assert scores == sorted(scores, reverse=True), f"rows must be score-desc: {scores[:8]}"
         # my_rank must be an int (either from the top-100 window or synthesised)
         assert isinstance(data["my_rank"], int) and data["my_rank"] >= 1
         # every row has required shape
         for row in data["rows"]:
-            for k in ("rank", "id", "username", "level", "rank_name", "xp", "wins", "is_me"):
+            for k in ("rank", "id", "username", "level", "rank_name", "score", "xp", "wins", "is_me"):
                 assert k in row, f"row missing key {k}: {row}"
 
     def test_friends_scope_contains_self_only_when_no_friends(self, alice):

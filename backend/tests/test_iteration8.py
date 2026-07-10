@@ -1,8 +1,8 @@
 """Iteration 8 — verifies the new 'failsafe' ability:
 
-  1. /api/abilities catalog includes failsafe (id, name, icon, unlock_level=3, type='active')
+  1. /api/abilities catalog includes failsafe (id, name, icon, unlock_level=10, type='active')
   2. A fresh guest (L1) sees failsafe as locked
-  3. Bump user to L3 (xp=600) in Mongo -> failsafe becomes equippable
+  3. Bump user to L10 (xp=10000) in Mongo -> failsafe becomes equippable
   4. Match with failsafe completes without server error; press with use_ability=true
      while alive should NOT self-eliminate within the 2-second window even if
      danger is boosted client-side (danger stays <=100). We verify:
@@ -66,7 +66,7 @@ class TestFailsafeCatalog:
         fs = by_id["failsafe"]
         assert fs["name"] == "Failsafe"
         assert fs["icon"] == "shield-check"
-        assert fs["unlock_level"] == 3
+        assert fs["unlock_level"] == 10
         assert fs["type"] == "active"
 
     def test_locked_for_fresh_guest(self):
@@ -86,7 +86,7 @@ class TestFailsafeEquip:
                           json={"ability_id": "failsafe"}, timeout=15)
         assert r.status_code in (400, 403), r.text
 
-        _bump(u["id"], 600)  # L3
+        _bump(u["id"], 10000)  # L10
         r = requests.post(f"{BASE}/profile/ability", headers=_hdr(tok),
                           json={"ability_id": "failsafe"}, timeout=15)
         assert r.status_code == 200, r.text
@@ -94,7 +94,7 @@ class TestFailsafeEquip:
         # profile echoes
         me = requests.get(f"{BASE}/profile", headers=_hdr(tok), timeout=15).json()["user"]
         assert me["equipped_ability"] == "failsafe"
-        assert me["progression"]["level"] == 3
+        assert me["progression"]["level"] == 10
 
 
 # 3/4. Match with failsafe completes; press within 2s never self-eliminates
@@ -102,7 +102,7 @@ class TestFailsafeMatch:
     def test_match_press_and_grace_window(self):
         assert MONGO_URL and DB_NAME
         tok, u = _guest("FsPlay")
-        _bump(u["id"], 600)
+        _bump(u["id"], 10000)
         r = requests.post(f"{BASE}/profile/ability", headers=_hdr(tok),
                           json={"ability_id": "failsafe"}, timeout=15)
         assert r.status_code == 200

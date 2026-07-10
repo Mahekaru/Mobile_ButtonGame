@@ -101,8 +101,10 @@ class TestMatchDanger:
         time.sleep(2)  # bank some patience
         requests.post(f"{BASE}/match/{mid}/leave", headers=_h(tok), timeout=10)
         s = requests.get(f"{BASE}/match/{mid}/state", headers=_h(tok), timeout=10).json()
-        assert "results" in s, s
-        r = s["results"]
+        # While dead but match still running, personal recap lives under my_result
+        # (full `results` block only appears once the match has ended).
+        assert "my_result" in s, s
+        r = s["my_result"]
         for key in ("patience_xp", "bonus_xp", "friend_kos", "rival_kos", "xp_gained", "placement", "kills"):
             assert key in r, f"missing {key}: {r}"
         assert r["patience_xp"] >= 0

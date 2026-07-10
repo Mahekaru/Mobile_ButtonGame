@@ -127,12 +127,11 @@ class TestCoLobby:
         mid_b = r2.json()["match_id"]
         assert mid_a == mid_b, f"Guests placed in different matches: {mid_a} vs {mid_b}"
 
-        # Before bot backfill, humans>=2 in lobby state
+        # Before bot backfill both guests share the lobby; the lobby no longer
+        # exposes a human count, so just assert the shared match + valid phase.
         st = s.get(f"{BASE}/match/{mid_a}/state", headers=h(tok_a)).json()
         assert st["match_id"] == mid_a
-        # Either still in lobby (humans>=2) or already active (backfilled)
-        if st["phase"] == "lobby":
-            assert st["humans"] >= 2
+        assert st["phase"] in ("lobby", "active")
         # cleanup
         s.post(f"{BASE}/match/{mid_a}/leave", headers=h(tok_a))
         s.post(f"{BASE}/match/{mid_b}/leave", headers=h(tok_b))
@@ -162,16 +161,17 @@ class TestResultsAndPersistence:
         r = s.post(f"{BASE}/match/{mid}/leave", headers=h(tok))
         assert r.status_code == 200
 
-        # State should now include results
+        # State should now include the personal recap (my_result while dead;
+        # the full `results` block only appears once the match ends).
         st = None
         deadline = time.time() + 5
         while time.time() < deadline:
             st = s.get(f"{BASE}/match/{mid}/state", headers=h(tok)).json()
-            if st.get("results"):
+            if st.get("my_result"):
                 break
             time.sleep(0.3)
-        assert st and st.get("results"), f"no results in state: {st}"
-        res = st["results"]
+        assert st and st.get("my_result"), f"no my_result in state: {st}"
+        res = st["my_result"]
         # verify required recap-card fields
         for k in ("won", "placement", "kills", "xp_gained",
                   "bonus_xp", "friend_kos", "rival_kos", "ko_names"):

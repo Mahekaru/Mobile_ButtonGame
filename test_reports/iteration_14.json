@@ -1,0 +1,27 @@
+{
+  "summary": "Verified refresh of legacy backend tests + FastAPI lifespan migration. Ran the FULL pytest suite (10 files, 105 tests, ~4:49 wall time). Initial run: 104 passed, 1 failed — the single failure was tests/test_iteration6.py::TestXpCurve::test_single_match_xp_is_small with a urllib3 ConnectTimeoutError to https://panic-ranks.preview.emergentagent.com (env flake per the review request). Re-ran that one test in isolation: PASSED in 11.5s. Net result: 105/105 green (100%). Per-file breakdown (all pass=100%): test_iteration3=10, test_iteration5=8, test_iteration6=18 (17+1 retry), test_iteration8=4, test_iteration10=10, test_iteration13_rank_bug_fix=9, test_rank_progression=9, test_panic_button=20, test_social_features=11, test_rewarded_ads=6. Lifespan migration verified: server.py uses @asynccontextmanager + FastAPI(lifespan=lifespan); no on_event usage anywhere; backend supervisor RUNNING (pid 3648, no restarts during run); no 'on_event is deprecated' DeprecationWarning in backend logs. Live API spot-checks against https://panic-ranks.preview.emergentagent.com: GET /api/ -> 200 {\"message\":\"Panic Button API\",\"status\":\"online\"}; POST /api/auth/guest returns token + user; GET /api/abilities (auth) returns exactly 10 abilities with unlock_level map {second_chance:3, lucky_press:6, failsafe:10, hide:14, deflect:18, overcharge:22, double_tap:27, adrenaline:33, steady:40, immortal:50} — every value from the review checklist matches (failsafe=10, hide=14, overcharge=22, adrenaline=33, steady=40); fresh guest /auth/me shows progression.level=1, xp=0, xp_into_level=0, xp_for_next=800, is_max=false, unlocked_abilities=[] — all as expected. The join+leave -> my_result (not results) contract while a match is still running is covered and passing inside test_iteration3/test_iteration6/test_panic_button. Backend testing only (frontend intentionally skipped per request).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": [], "react_native_issues": []},
+  "test_report_links": [
+    "/app/test_reports/pytest/pytest_iter14.xml (JUnit XML, full suite run)",
+    "/app/backend/tests/test_iteration3.py",
+    "/app/backend/tests/test_iteration5.py",
+    "/app/backend/tests/test_iteration6.py",
+    "/app/backend/tests/test_iteration8.py",
+    "/app/backend/tests/test_iteration10.py",
+    "/app/backend/tests/test_iteration13_rank_bug_fix.py",
+    "/app/backend/tests/test_rank_progression.py",
+    "/app/backend/tests/test_panic_button.py",
+    "/app/backend/tests/test_social_features.py",
+    "/app/backend/tests/test_rewarded_ads.py"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (105/105 after single env-flake retry)", "frontend": "not tested (skipped per request)"},
+  "seed_data_creation": "Ephemeral only: guest usernames TEST_QA_ABI/TEST_QA_ABI2/TEST_QA_ABI3 created via /api/auth/guest for spot-checks; pytest suite creates its own TEST_* guests and cleans naturally (no DB pollution touching real users).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Full backend suite is ~4-5 minutes because match-lifecycle tests wait for real lobby countdown + active phase. Recommended invocation: `cd /app/backend && python3 -m pytest tests/ -q --tb=short --junitxml=/app/test_reports/pytest/pytest_iterN.xml`. If a single match-based test fails with urllib3 ConnectTimeout to panic-ranks.preview.emergentagent.com, just re-run that test — it is environmental, not a code bug (observed once in this run for test_iteration6::TestXpCurve::test_single_match_xp_is_small, passed cleanly on retry in 11s). API auth token key is `token` (NOT `access_token`) in the /api/auth/guest response — remember when writing new tests. /api/abilities response shape is {equipped, abilities: [...]} — the list is under `abilities`, count must equal 10.",
+  "rca_of_issue": "N/A — this iteration validates E1's dual cleanup: (a) FastAPI @app.on_event('shutdown') -> @asynccontextmanager lifespan (server.py lines 37-43), and (b) refresh of 8 legacy backend pytest files (test_iteration3/5/6/8/10, test_panic_button, test_social_features, test_rewarded_ads) whose assertions were stale vs current correct behavior (XP curve, 10-ability catalog, new unlock levels, my_result-during-active vs results-post-match, updated leaderboard defaults, updated lobby humans-count). Post-fix suite: 104/105 first pass with 1 env timeout that passed on retry -> 105/105 = 100%."
+}

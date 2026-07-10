@@ -101,7 +101,47 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
-## Session: Rank XP progression bug fix (2026-06)
+## Session: Refresh stale legacy tests + fix deprecations (2026-06)
+user_problem_statement: "Refresh any stale legacy test files. Anything that is deprecated needs to be fixed."
+
+backend:
+  - task: "Fix deprecated FastAPI on_event -> lifespan handler"
+    implemented: true
+    working: "NA"
+    file: "server.py"
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Replaced deprecated @app.on_event('shutdown') with an asynccontextmanager lifespan passed to FastAPI(lifespan=...). Import warning-check confirms our code no longer emits the on_event DeprecationWarning (remaining PendingDeprecationWarning is starlette-internal python_multipart, not our code). No utcnow/pydantic-v1 deprecations found."
+  - task: "Refresh stale legacy backend test files to current behavior"
+    implemented: true
+    working: "NA"
+    file: "tests/test_iteration3.py, tests/test_iteration5.py, tests/test_iteration6.py, tests/test_iteration8.py, tests/test_iteration10.py, tests/test_panic_button.py, tests/test_social_features.py, tests/test_rewarded_ads.py"
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Prior run: 22 failed/83 passed due to STALE assertions vs current (correct) behavior. Fixes: (1) abilities count 4->10 / 8->10; (2) ability unlock levels updated to current milestones (failsafe L3->L10 needs xp 10000; hide L4->L14/12300, overcharge L6->L22/20800, adrenaline L8->L33/31500, steady L10->L40/40000); (3) XP curve thresholds updated to eased rank_threshold (L2 xp_for_next 200->800, L5 math 2000->3300, direct-bump uses 3299/3300); (4) leave no longer returns `results` in state — dead-but-running now exposes `my_result` (results only when phase==ended): updated test_iteration3/test_social/test_rewarded_ads; (5) lobby no longer exposes `humans` count — removed that assertion in test_social CoLobby; (6) leaderboard default period=season sorts by season_xp — test now requests period=alltime and asserts score-desc + my_rank int; (7) test_iteration5 glow(L2) unlock now bumps xp to 800 via Mongo instead of the +125 daily claim. Local verification: 9/9 fast tests pass; match-play subset 13/14 pass (1 transient ConnectTimeout to preview URL, not a logic failure)."
+
+metadata:
+  test_sequence: 14
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Refresh stale legacy backend test files to current behavior"
+    - "Fix deprecated FastAPI on_event -> lifespan handler"
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: "Please run the FULL backend pytest suite: `cd /app/backend && python3 -m pytest tests/ -q` (it takes ~4-5 min because several tests play real matches). Confirm ALL tests pass (retry any single test that fails purely on a network ConnectTimeout to the preview host — that is environmental, not a code bug). Also confirm the server starts cleanly with the new lifespan handler (no on_event DeprecationWarning from our code). Backend only — skip frontend."
+
+
 user_problem_statement: "Fix XP progression bug — higher ranks shared the same XP requirement (flat per-tier increments). Implement one authoritative eased curve, ranks 1-50, milestones R10=10k..R50=50k, strictly increasing thresholds, milestone abilities at ranks 3,6,10,14,18,22,27,33,40,50. Preserve existing XP + unlocked abilities; recompute rank from lifetime XP; progress bar uses current-rank window."
 
 backend:
