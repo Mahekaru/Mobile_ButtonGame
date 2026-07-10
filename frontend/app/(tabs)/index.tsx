@@ -333,7 +333,7 @@ export default function PlayScreen() {
             size={24}
             color="#fff"
           />
-          <Text style={styles.findText}>{searching ? "SEARCHING FOR PLAYERS…" : "FIND MATCH"}</Text>
+          <Text style={styles.findText}>{searching ? "SEARCHING FOR PLAYERS…" : "ENTER MATCHMAKING"}</Text>
         </Pressable>
       </View>
 
