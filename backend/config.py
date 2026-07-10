@@ -147,6 +147,12 @@ ABILITIES = [
         "type": "active",
         "desc": "Once per match: for 2 seconds after you press, you cannot eliminate yourself.",
     },
+    {
+        "id": "immortal", "name": "Immortality", "icon": "shield-star",
+        "unlock_level": 50,
+        "type": "active",
+        "desc": "MAX RANK REWARD. Once per match: become completely untargetable and press-safe for 8 seconds — nothing can eliminate you.",
+    },
 ]
 ABILITY_BY_ID = {a["id"]: a for a in ABILITIES}
 DEFENSIVE_ABILITIES = {a["id"] for a in ABILITIES if a["type"] == "defensive"}
@@ -174,6 +180,7 @@ COSMETICS = {
         {"id": "executioner", "name": "Executioner", "unlock_level": 5},
         {"id": "untouchable", "name": "Untouchable", "unlock_level": 7},
         {"id": "legend", "name": "Living Legend", "unlock_level": 10},
+        {"id": "immortal", "name": "Immortal", "unlock_level": 50},
     ],
     "icon": [
         {"id": "skull", "name": "Skull", "unlock_level": 1, "icon": "skull"},
@@ -216,16 +223,27 @@ DEFAULT_COSMETICS = {
 # ---------------------------------------------------------------------------
 MAX_LEVEL = 50
 
+# Hand-tuned cumulative XP table (XP required to REACH each level; level 1 = 0).
+# Standard RPG shape: early levels are cheap, later levels progressively pricier.
+# Milestones land on clean round numbers:
+#   L10 = 2,000 · L15 = 4,000 · L20 = 7,000 · L25 = 11,000 · L30 = 16,000
+#   L35 = 22,000 · L40 = 30,000 · L45 = 42,000 · L50 = 60,000 (max / Immortal)
+XP_TABLE = [
+    0, 100, 250, 450, 700, 960, 1220, 1480, 1740, 2000,
+    2400, 2800, 3200, 3600, 4000, 4600, 5200, 5800, 6400, 7000,
+    7800, 8600, 9400, 10200, 11000, 12000, 13000, 14000, 15000, 16000,
+    17200, 18400, 19600, 20800, 22000, 23600, 25200, 26800, 28400, 30000,
+    32400, 34800, 37200, 39600, 42000, 45600, 49200, 52800, 56400, 60000,
+]
+
 
 def xp_for_level(level: int) -> int:
-    """Cumulative XP required to REACH `level` (level 1 = 0 xp).
-
-    Standard quadratic curve — each level costs progressively more so players
-    climb steadily rather than jumping several levels per match.
-    """
+    """Cumulative XP required to REACH `level` (level 1 = 0 xp)."""
     if level <= 1:
         return 0
-    return int(100 * (level - 1) * level)
+    if level >= MAX_LEVEL:
+        return XP_TABLE[MAX_LEVEL - 1]
+    return XP_TABLE[level - 1]
 
 
 def level_for_xp(xp: int) -> int:

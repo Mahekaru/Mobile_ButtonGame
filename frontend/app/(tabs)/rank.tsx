@@ -17,6 +17,7 @@ const LEVEL_UNLOCKS: Record<number, string> = {
   7: "Unlocks: Double Tap",
   8: "Unlocks: Adrenaline · Overload FX",
   10: "Unlocks: Steady Hand · Neon Pulse",
+  50: "MAX RANK · Unlocks: Immortality ability + Immortal title",
 };
 
 // Every level 1..MAX_LEVEL, with the XP needed to reach it, its rank tier,

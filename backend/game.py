@@ -285,6 +285,12 @@ class Match:
                 presser.self_safe_until = now() + 2.0
                 presser.ability_used = True
                 ability_note = "failsafe"
+            elif presser.ability == "immortal":
+                # Capstone (L50): fully untargetable + press-safe for 8 seconds.
+                presser.hidden_until = now() + 8.0
+                self_chance = 0.0
+                presser.ability_used = True
+                ability_note = "immortal"
 
         # Failsafe grace window: no self-elimination while active.
         if presser.self_safe_until and now() < presser.self_safe_until:
