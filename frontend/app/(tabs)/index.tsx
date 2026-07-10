@@ -36,7 +36,7 @@ export default function PlayScreen() {
   const { user, refresh, changeName } = useAuth();
   const [searching, setSearching] = useState(false);
   const [reward, setReward] = useState<any>(null);
-  const [challengeSummary, setChallengeSummary] = useState<{ completed: number; total: number } | null>(null);
+  const [challengeSummary, setChallengeSummary] = useState<{ completed: number; total: number; allClaimed: boolean } | null>(null);
   const [claiming, setClaiming] = useState(false);
   const [claimed, setClaimed] = useState<{ amount: number; weekly: boolean } | null>(null);
   const [nameInput, setNameInput] = useState("");
@@ -56,7 +56,8 @@ export default function PlayScreen() {
     }
     try {
       const c = await api.challenges();
-      setChallengeSummary({ completed: c.completed, total: c.total });
+      const allClaimed = (c.challenges?.length ?? 0) > 0 && c.challenges.every((x: any) => x.claimed);
+      setChallengeSummary({ completed: c.completed, total: c.total, allClaimed });
     } catch {
       /* ignore */
     }
@@ -243,25 +244,27 @@ export default function PlayScreen() {
           </View>
         )}
 
-        {/* Daily challenges */}
-        <Pressable
-          testID="challenges-card"
-          style={styles.challengeCard}
-          onPress={() => router.push("/challenges")}
-        >
-          <View style={styles.challengeIcon}>
-            <MaterialCommunityIcons name="target" size={22} color={colors.amber} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.challengeTitle}>DAILY CHALLENGES</Text>
-            <Text style={styles.challengeSub}>
-              {challengeSummary
-                ? `${challengeSummary.completed}/${challengeSummary.total} complete today`
-                : "Earn bonus XP every day"}
-            </Text>
-          </View>
-          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.muted} />
-        </Pressable>
+        {/* Daily challenges — hidden once every challenge is claimed */}
+        {!challengeSummary?.allClaimed && (
+          <Pressable
+            testID="challenges-card"
+            style={styles.challengeCard}
+            onPress={() => router.push("/challenges")}
+          >
+            <View style={styles.challengeIcon}>
+              <MaterialCommunityIcons name="target" size={22} color={colors.amber} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.challengeTitle}>DAILY CHALLENGES</Text>
+              <Text style={styles.challengeSub}>
+                {challengeSummary
+                  ? `${challengeSummary.completed}/${challengeSummary.total} complete today`
+                  : "Earn bonus XP every day"}
+              </Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={22} color={colors.muted} />
+          </Pressable>
+        )}
 
         {/* Rank card */}
         <Pressable style={styles.rankCard} testID="rank-card" onPress={() => router.push("/(tabs)/rank")}>
