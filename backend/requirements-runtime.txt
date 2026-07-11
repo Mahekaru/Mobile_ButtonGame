@@ -1,0 +1,14 @@
+# Minimal RUNTIME dependencies for the Pressure backend.
+# (The full requirements.txt also contains the platform template's dev tools
+#  and unused libs. Use THIS file for a lean self-hosted / container build.)
+
+fastapi==0.110.1
+uvicorn[standard]==0.25.0     # ASGI server (includes websockets + httptools)
+motor==3.3.1                  # async MongoDB driver
+pymongo==4.6.3                # Motor's underlying sync driver
+pydantic>=2.6.4               # request/response validation
+email-validator>=2.2.0        # EmailStr support (register endpoint)
+pyjwt>=2.10.1                 # JWT auth tokens
+bcrypt==4.1.3                 # password hashing
+python-dotenv>=1.0.1          # loads backend/.env
+tzdata>=2024.2                # tz database (weekly-season UTC math on minimal images)

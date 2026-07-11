@@ -1,0 +1,39 @@
+# ---------------------------------------------------------------------------
+# Pressure — local/self-host stack: MongoDB + backend API.
+#
+#   docker compose up --build
+#
+# API is then reachable at http://localhost:8001  (routes are under /api).
+# Point the Expo app's EXPO_PUBLIC_BACKEND_URL at that host.
+# ---------------------------------------------------------------------------
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "8001:8001"
+    environment:
+      MONGO_URL: "mongodb://mongo:27017"
+      DB_NAME: "pressure"
+      # CHANGE THIS to a long random string in real deployments:
+      JWT_SECRET: "change-me-to-a-long-random-secret"
+      CORS_ORIGINS: "*"
+
+volumes:
+  mongo_data:
