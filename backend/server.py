@@ -525,7 +525,10 @@ async def leaderboard(scope: str = "global", period: str = "season",
         query["season_id"] = sid
     rows = []
     rank = 0
-    cursor = db.users.find(query).sort([(sort_field, -1), ("wins", -1)]).limit(100)
+    cursor = db.users.find(
+        query,
+        {"_id": 1, "username": 1, "xp": 1, "season_xp": 1, "wins": 1, "season_id": 1},
+    ).sort([(sort_field, -1), ("wins", -1)]).limit(100)
     async for u in cursor:
         rank += 1
         prog = C.progression_snapshot(u.get("xp", 0))
