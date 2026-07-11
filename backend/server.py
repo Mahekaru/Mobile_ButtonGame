@@ -22,6 +22,7 @@ import challenges as CH
 import config as C
 import seasons as S
 from game import MatchManager
+from namefilter import check_username
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -229,6 +230,9 @@ def _new_user_doc(user_id: str, username: str, friend_code: str, email=None, pas
 @api_router.post("/auth/guest")
 async def guest(body: GuestBody):
     """Name-only onboarding — creates a device-bound account with a friend code."""
+    ok, reason = check_username(body.username)
+    if not ok:
+        raise HTTPException(status_code=400, detail=reason)
     user_id = str(uuid.uuid4())
     code = await generate_friend_code()
     doc = _new_user_doc(user_id, body.username.strip(), code)
@@ -327,6 +331,9 @@ async def ads_reward(user: dict = Depends(get_current_user)):
 
 @api_router.post("/profile/name")
 async def change_name(body: ChangeNameBody, user: dict = Depends(get_current_user)):
+    ok, reason = check_username(body.username)
+    if not ok:
+        raise HTTPException(status_code=400, detail=reason)
     await db.users.update_one({"_id": user["_id"]}, {"$set": {"username": body.username.strip()}})
     updated = await db.users.find_one({"_id": user["_id"]})
     return {"user": public_user(updated)}

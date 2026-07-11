@@ -137,6 +137,9 @@ Multiplayer battle-royale game around a single shared button. 100 players; any l
 - Outcome copy: in-match reveal — own kill = "PLAYER ELIMINATED", self = "SELF-ELIMINATION"; results title — win = "YOU SURVIVED", self = "SELF-ELIMINATION", killed by another = "YOU WERE ELIMINATED".
 - All user-facing "Danger" → "Pressure" (match HUD label "PRESSURE", hint text, ability descriptions in config.py + catalog.ts). Internal code identifiers (dangerColor/dangerLabel/state.danger keys) unchanged — layout/functionality/style untouched.
 
+## Update — Callsign profanity/alias filter (2026-06)
+- New `backend/namefilter.py` (`check_username`) rejects inappropriate callsigns: profanity/slurs (hard-block substrings, leet + separator + repeat-letter normalization), common profanity as whole-word tokens (avoids false positives like class/assassin/pass), reserved/impersonation names (admin/pressure/staff…), charset (letters/digits/space . _ -) and 2–16 length. Wired into `POST /api/auth/guest` and `POST /api/profile/name` → HTTP 400 with a friendly message. Frontend rename sheet now surfaces the error (was swallowed); auth screen already did. Verified live: bad names 400, clean names 200; e2e screenshot shows error on entry.
+
 ## Known residual (low priority)
 - RN-Web warning `props.pointerEvents is deprecated` at match/[id].tsx reveal banner (web-only cosmetic).
 - IBM Plex TTFs fail to decode via preview proxy (web-only; native builds load fine).

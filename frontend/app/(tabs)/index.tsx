@@ -41,6 +41,7 @@ export default function PlayScreen() {
   const [claimed, setClaimed] = useState<{ amount: number; weekly: boolean } | null>(null);
   const [nameInput, setNameInput] = useState("");
   const [savingName, setSavingName] = useState(false);
+  const [nameErr, setNameErr] = useState<string | null>(null);
   const nameSheet = useRef<BottomSheetModal>(null);
   const partySheet = useRef<BottomSheetModal>(null);
   const [partyCode, setPartyCode] = useState("");
@@ -98,19 +99,25 @@ export default function PlayScreen() {
   };
 
   const openNameSheet = () => {
+    setNameErr(null);
     setNameInput(user?.username || "");
     nameSheet.current?.present();
   };
 
   const saveName = async () => {
-    if (nameInput.trim().length < 2) return;
+    setNameErr(null);
+    if (nameInput.trim().length < 2) {
+      setNameErr("Pick a callsign with at least 2 characters.");
+      return;
+    }
     setSavingName(true);
     try {
       await changeName(nameInput.trim());
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       nameSheet.current?.dismiss();
-    } catch {
-      /* ignore */
+    } catch (e) {
+      setNameErr(e instanceof ApiError ? e.message : "Couldn't save that callsign.");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setSavingName(false);
     }
@@ -352,13 +359,19 @@ export default function PlayScreen() {
           <TextInput
             testID="name-input"
             value={nameInput}
-            onChangeText={setNameInput}
+            onChangeText={(t) => { setNameInput(t); if (nameErr) setNameErr(null); }}
             autoCapitalize="none"
             maxLength={16}
             placeholder="New callsign"
             placeholderTextColor={colors.muted}
             style={styles.nameInput}
           />
+          {nameErr && (
+            <View style={styles.nameErrBox} testID="name-error">
+              <MaterialCommunityIcons name="alert-circle" size={16} color={colors.red} />
+              <Text style={styles.nameErrText}>{nameErr}</Text>
+            </View>
+          )}
           <PrimaryButton
             testID="save-name-btn"
             label="SAVE"
@@ -469,6 +482,16 @@ const styles = StyleSheet.create({
     fontFamily: font.semi,
     fontSize: type.xl,
   },
+  nameErrBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+    backgroundColor: colors.redDeep,
+    borderRadius: radius.md,
+    padding: space.md,
+    marginTop: space.md,
+  },
+  nameErrText: { color: colors.red, fontFamily: font.medium, fontSize: type.base, flex: 1 },
   partyBtn: {
     height: 52,
     borderRadius: radius.lg,
