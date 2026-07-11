@@ -17,7 +17,7 @@ import pytest
 import requests
 import websocket  # websocket-client
 
-BASE_URL = "https://panic-ranks.preview.emergentagent.com"
+BASE_URL = "https://pressure-battle-1.preview.emergentagent.com"
 API = f"{BASE_URL}/api"
 
 

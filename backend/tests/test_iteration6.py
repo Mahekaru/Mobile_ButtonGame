@@ -21,7 +21,7 @@ from pathlib import Path
 
 load_dotenv(Path("/app/backend/.env"))
 
-BASE = "https://panic-ranks.preview.emergentagent.com/api"
+BASE = "https://pressure-battle-1.preview.emergentagent.com/api"
 MONGO_URL = os.environ.get("MONGO_URL")
 DB_NAME = os.environ.get("DB_NAME")
 
