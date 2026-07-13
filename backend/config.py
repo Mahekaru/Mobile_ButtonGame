@@ -29,6 +29,15 @@ PROTECTION_MAX_KILLS = 10
 # right after a press and linearly falls to zero over this window (seconds).
 PROTECTION_DECAY_WINDOW = 20.0
 
+# ---------------------------------------------------------------------------
+# Abuse / rate limits (in-memory, per single uvicorn worker). Tuned so a normal
+# "finish a match -> immediately join the next" flow is NEVER blocked.
+# ---------------------------------------------------------------------------
+RL_PRESS_LIMIT, RL_PRESS_WINDOW = 20, 1        # button presses/sec per user
+RL_JOIN_LIMIT, RL_JOIN_WINDOW = 10, 20         # match joins per user (generous)
+RL_PARTY_LIMIT, RL_PARTY_WINDOW = 5, 60        # party creations per user
+RL_PARTY_JOIN_LIMIT, RL_PARTY_JOIN_WINDOW = 20, 20  # party joins per user
+RL_GUEST_LIMIT, RL_GUEST_WINDOW = 30, 60      # guest signups per public client IP
 
 def protection_for(kills: int) -> float:
     return min(PROTECTION_CAP, max(0, kills) * PROTECTION_PER_KILL)

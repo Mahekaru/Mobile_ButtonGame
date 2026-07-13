@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager
 import bcrypt
 import jwt
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, EmailStr, Field
@@ -23,6 +23,7 @@ import config as C
 import seasons as S
 from game import MatchManager
 from namefilter import check_username
+from ratelimit import enforce as rl_enforce, client_ip, is_public_ip
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -228,8 +229,11 @@ def _new_user_doc(user_id: str, username: str, friend_code: str, email=None, pas
 
 
 @api_router.post("/auth/guest")
-async def guest(body: GuestBody):
+async def guest(body: GuestBody, request: Request):
     """Name-only onboarding — creates a device-bound account with a friend code."""
+    ip = client_ip(request)
+    if is_public_ip(ip):
+        await rl_enforce(f"guest:{ip}", C.RL_GUEST_LIMIT, C.RL_GUEST_WINDOW)
     ok, reason = check_username(body.username)
     if not ok:
         raise HTTPException(status_code=400, detail=reason)
@@ -613,6 +617,7 @@ async def recent_challenges(user: dict = Depends(get_current_user)):
 # ---------------------------------------------------------------------------
 @api_router.post("/match/join")
 async def match_join(user: dict = Depends(get_current_user)):
+    await rl_enforce(f"join:{user['_id']}", C.RL_JOIN_LIMIT, C.RL_JOIN_WINDOW)
     icon = user.get("equipped_cosmetics", {}).get("icon", "skull")
     result = await manager.join(
         user["_id"], user["username"], user.get("equipped_ability"), icon,
@@ -623,6 +628,7 @@ async def match_join(user: dict = Depends(get_current_user)):
 
 @api_router.post("/match/party/create")
 async def party_create(user: dict = Depends(get_current_user)):
+    await rl_enforce(f"party:{user['_id']}", C.RL_PARTY_LIMIT, C.RL_PARTY_WINDOW)
     icon = user.get("equipped_cosmetics", {}).get("icon", "skull")
     return await manager.create_party(
         user["_id"], user["username"], user.get("equipped_ability"), icon,
@@ -636,6 +642,7 @@ class PartyJoinBody(BaseModel):
 
 @api_router.post("/match/party/join")
 async def party_join(body: PartyJoinBody, user: dict = Depends(get_current_user)):
+    await rl_enforce(f"pjoin:{user['_id']}", C.RL_PARTY_JOIN_LIMIT, C.RL_PARTY_JOIN_WINDOW)
     icon = user.get("equipped_cosmetics", {}).get("icon", "skull")
     result = await manager.join_party(
         body.code.strip().upper(), user["_id"], user["username"],
@@ -657,6 +664,7 @@ async def match_state(match_id: str, user: dict = Depends(get_current_user)):
 
 @api_router.post("/match/{match_id}/press")
 async def match_press(match_id: str, body: PressBody, user: dict = Depends(get_current_user)):
+    await rl_enforce(f"press:{user['_id']}", C.RL_PRESS_LIMIT, C.RL_PRESS_WINDOW)
     match = manager.get(match_id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")

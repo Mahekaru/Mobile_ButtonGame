@@ -101,6 +101,47 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+## Session: Abuse protection — rate limiting + alias filter (2026-06)
+user_problem_statement: "Add server-side abuse protection: rate limits on rapid button presses, repeated match/party creation, and guest signups — without ever blocking a user from joining a game right after one ends. Also alias/callsign profanity filter."
+
+backend:
+  - task: "In-memory rate limiting (press / join / party-create / party-join / guest)"
+    implemented: true
+    working: "NA"
+    file: "ratelimit.py, config.py, server.py"
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "New ratelimit.py: async sliding-window (deque + asyncio.Lock), enforce()->HTTP 429 w/ Retry-After, client_ip() (left-most X-Forwarded-For else socket peer), is_public_ip() (skips private/loopback/reserved incl. RFC5737 doc ranges). Limits (config.py): press 20/1s per user, join 10/20s per user, party-create 5/60s per user, party-join 20/20s per user, guest 30/60s PER PUBLIC IP only (loopback/shared-proxy skipped so real users behind NAT + local pytest are never throttled). Join limit is deliberately generous so finish-match->join-next (1 req) is NEVER blocked. Self-verified via curl on localhost:8001: press->429 after 20/s (plus 409 once dead), join->429 after 10, party->429 after 5, guest public-XFF->429 after 30, guest loopback->unlimited (34x all 200)."
+  - task: "Alias/callsign profanity + reserved-name filter"
+    implemented: true
+    working: "NA"
+    file: "namefilter.py, server.py"
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "check_username() blocks profanity/slurs (leet+separator+repeat-letter normalized substring), common profanity as whole-word tokens (no false positives on class/assassin/pass), reserved/impersonation (admin/pressure/staff), charset + 2-16 len. Wired into POST /auth/guest and POST /profile/name -> 400. Frontend rename sheet + auth screen surface the message. Live-verified 400/200 + e2e screenshot."
+
+metadata:
+  test_sequence: 15
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "In-memory rate limiting (press / join / party-create / party-join / guest)"
+    - "Alias/callsign profanity + reserved-name filter"
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: "New backend abuse-protection layer. PRIORITY TESTS: (1) rate limits return 429 with Retry-After — press >20/s per user, /match/join >10 in 20s per user, /match/party/create >5 in 60s per user; (2) CRITICAL REGRESSION: a normal single /match/join (e.g. right after a match ends) must ALWAYS succeed (never 429) — verify joining works repeatedly across separate matches; (3) guest signups: the per-IP guest limit must NOT throttle when the client IP is loopback/private (so local pytest + shared-proxy users are unaffected) — the full existing suite hits the EXTERNAL url so confirm it still passes end-to-end; (4) run the FULL pytest suite `cd /app/backend && python3 -m pytest tests/ -q` and confirm no regressions from the new limits (retry single env ConnectTimeouts). Also confirm alias filter: /auth/guest and /profile/name reject profane/reserved names (400) and accept clean names (200). Backend only — skip frontend."
+
+
 ## Session: Refresh stale legacy tests + fix deprecations (2026-06)
 user_problem_statement: "Refresh any stale legacy test files. Anything that is deprecated needs to be fixed."
 

@@ -137,6 +137,11 @@ Multiplayer battle-royale game around a single shared button. 100 players; any l
 - Outcome copy: in-match reveal — own kill = "PLAYER ELIMINATED", self = "SELF-ELIMINATION"; results title — win = "YOU SURVIVED", self = "SELF-ELIMINATION", killed by another = "YOU WERE ELIMINATED".
 - All user-facing "Danger" → "Pressure" (match HUD label "PRESSURE", hint text, ability descriptions in config.py + catalog.ts). Internal code identifiers (dangerColor/dangerLabel/state.danger keys) unchanged — layout/functionality/style untouched.
 
+## Update — Abuse protection: rate limiting (2026-06)
+- New `backend/ratelimit.py`: in-memory async sliding-window limiter (deque + asyncio.Lock), `enforce()` → HTTP 429 + `Retry-After`; `client_ip()` (left-most X-Forwarded-For, else socket peer); `is_public_ip()` (skips private/loopback/reserved incl. RFC5737 doc ranges).
+- Limits (`config.py`): press **20/1s per user**, match join **10/20s per user** (deliberately generous — finish-match→join-next is 1 req, NEVER blocked), party-create **5/60s per user**, party-join **20/20s per user**, guest signup **30/60s per PUBLIC IP only** (loopback/shared-proxy skipped so NAT users + local pytest aren't throttled). Wired into `/match/{id}/press`, `/match/join`, `/match/party/create`, `/match/party/join`, `/auth/guest`.
+- Self-verified via curl: press→429 after 20/s (409 once dead), join→429 after 10, party→429 after 5, guest public-XFF→429 after 30, guest loopback→unlimited.
+
 ## Update — Callsign profanity/alias filter (2026-06)
 - New `backend/namefilter.py` (`check_username`) rejects inappropriate callsigns: profanity/slurs (hard-block substrings, leet + separator + repeat-letter normalization), common profanity as whole-word tokens (avoids false positives like class/assassin/pass), reserved/impersonation names (admin/pressure/staff…), charset (letters/digits/space . _ -) and 2–16 length. Wired into `POST /api/auth/guest` and `POST /api/profile/name` → HTTP 400 with a friendly message. Frontend rename sheet now surfaces the error (was swallowed); auth screen already did. Verified live: bad names 400, clean names 200; e2e screenshot shows error on entry.
 
