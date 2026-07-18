@@ -137,6 +137,11 @@ Multiplayer battle-royale game around a single shared button. 100 players; any l
 - Outcome copy: in-match reveal — own kill = "PLAYER ELIMINATED", self = "SELF-ELIMINATION"; results title — win = "YOU SURVIVED", self = "SELF-ELIMINATION", killed by another = "YOU WERE ELIMINATED".
 - All user-facing "Danger" → "Pressure" (match HUD label "PRESSURE", hint text, ability descriptions in config.py + catalog.ts). Internal code identifiers (dangerColor/dangerLabel/state.danger keys) unchanged — layout/functionality/style untouched.
 
+## Deployment fix — AdMob Kotlin incompatibility (2026-07)
+- **Symptom:** EAS Android app-bundle build failed at `:react-native-google-mobile-ads:compileReleaseKotlin` — `play-services-ads-25.4.0 ... Module was compiled with an incompatible version of Kotlin. metadata is 2.3.0, expected 2.1.0`.
+- **Root cause:** `react-native-google-mobile-ads@16.4.0` pins `play-services-ads:25.4.0` (compiled with Kotlin 2.3.0), but the Expo SDK 54 / RN 0.81 build toolchain uses Kotlin 2.1.0, which can't read 2.3.0 metadata.
+- **Fix (code-level, no Docker changes):** pinned `react-native-google-mobile-ads` to **16.0.2** (exact, no caret) → `play-services-ads:24.6.0` (Kotlin 2.1.0 line). Installed via `yarn expo install` so package.json + yarn.lock both updated. Metro re-bundles cleanly (1462 modules); ads are simulated in preview (native SDK only loads in real builds) so no runtime change in preview.
+
 ## Update — Abuse protection: rate limiting (2026-06)
 - New `backend/ratelimit.py`: in-memory async sliding-window limiter (deque + asyncio.Lock), `enforce()` → HTTP 429 + `Retry-After`; `client_ip()` (left-most X-Forwarded-For, else socket peer); `is_public_ip()` (skips private/loopback/reserved incl. RFC5737 doc ranges).
 - Limits (`config.py`): press **20/1s per user**, match join **10/20s per user** (deliberately generous — finish-match→join-next is 1 req, NEVER blocked), party-create **5/60s per user**, party-join **20/20s per user**, guest signup **30/60s per PUBLIC IP only** (loopback/shared-proxy skipped so NAT users + local pytest aren't throttled). Wired into `/match/{id}/press`, `/match/join`, `/match/party/create`, `/match/party/join`, `/auth/guest`.
