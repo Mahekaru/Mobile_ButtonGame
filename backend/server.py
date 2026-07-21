@@ -43,6 +43,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
 api_router = APIRouter(prefix="/api")
 security = HTTPBearer(auto_error=True)
 
