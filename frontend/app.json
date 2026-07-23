@@ -47,6 +47,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "515619e8-2536-4a59-a3f1-17a1a52bc271"
+      }
+    },
+    "owner": "mahekaru"
   }
 }

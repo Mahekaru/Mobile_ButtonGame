@@ -89,3 +89,5 @@ credentials.json
 
 backup/.env*
 frontend/app.json
+frontend/.metro-cache/*
+frontend/android/*
