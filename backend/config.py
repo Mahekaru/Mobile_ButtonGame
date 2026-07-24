@@ -359,7 +359,6 @@ DAILY_XP = 100
 DAILY_STREAK_BONUS = 25   # per consecutive day (capped by streak %7)
 WEEKLY_XP = 350           # every 7th consecutive day
 
-# Rewarded ads
 # Full-screen ad cadence.
 #
 # This controls when the app may show its next natural interstitial.

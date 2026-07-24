@@ -365,7 +365,7 @@ async def ads_status(user: dict = Depends(get_current_user)):
 
 @api_router.post("/ads/seen")
 async def ads_seen(user: dict = Depends(get_current_user)):
-    """Record that a (mandatory) ad was shown — resets the 3-minute cooldown."""
+    """Record that a natural interstitial was displayed and closed."""
     await db.users.update_one({"_id": user["_id"]}, {"$set": {"last_ad_at": _now_ts()}})
     updated = await db.users.find_one({"_id": user["_id"]})
     return _ad_state(updated)

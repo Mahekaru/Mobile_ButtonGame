@@ -1,5 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { View, StyleSheet, Text, Pressable, ScrollView, Share, Platform } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Text,
+  Pressable,
+  ScrollView,
+  Share,
+  Platform,
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -18,17 +26,21 @@ import Animated, {
   SlideInUp,
 } from "react-native-reanimated";
 
-import { colors, font, radius, space, type, dangerColor, SKIN_COLORS } from "@/src/theme";
+import {
+  colors,
+  font,
+  radius,
+  space,
+  type,
+  dangerColor,
+  SKIN_COLORS,
+} from "@/src/theme";
 import { ABILITY_META } from "@/src/catalog";
 import { VictoryFX, ButtonFX, PressBurst } from "@/src/fx";
 import { levelForXp, rankName } from "@/src/progression";
 import { api, getToken, matchWsUrl } from "@/src/api";
 import { useAuth } from "@/src/auth";
-import {
-  adsSupported,
-  showInterstitialAd,
-  showRewardedAd,
-} from "@/src/ads";
+import { adsSupported, showInterstitialAd, showRewardedAd } from "@/src/ads";
 import { GlassCard, SkinSurface } from "@/src/ui";
 
 export default function MatchScreen() {
@@ -42,7 +54,9 @@ export default function MatchScreen() {
   const [localProtection, setLocalProtection] = useState(0);
   const [armed, setArmed] = useState(false);
   const [pressing, setPressing] = useState(false);
-  const [reveal, setReveal] = useState<{ text: string; tone: string } | null>(null);
+  const [reveal, setReveal] = useState<{ text: string; tone: string } | null>(
+    null,
+  );
   const [burstKey, setBurstKey] = useState(0);
   const [showResults, setShowResults] = useState(false);
 
@@ -50,7 +64,9 @@ export default function MatchScreen() {
   const endedRef = useRef(false);
   const scale = useSharedValue(1);
 
-  const skinColor = SKIN_COLORS[user?.equipped_cosmetics?.button_skin || "classic"] || colors.red;
+  const skinColor =
+    SKIN_COLORS[user?.equipped_cosmetics?.button_skin || "classic"] ||
+    colors.red;
   const skinId = user?.equipped_cosmetics?.button_skin || "classic";
   const buttonFx = user?.equipped_cosmetics?.button_fx || "none";
 
@@ -173,7 +189,8 @@ export default function MatchScreen() {
   };
 
   const me = state?.me;
-  const canPress = state?.phase === "active" && me?.alive && !pressing && !state?.results;
+  const canPress =
+    state?.phase === "active" && me?.alive && !pressing && !state?.results;
 
   const onPanic = async () => {
     if (!canPress) return;
@@ -198,7 +215,9 @@ export default function MatchScreen() {
     }
   };
 
-  const btnStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const btnStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
   const leave = async () => {
     endedRef.current = true;
@@ -219,13 +238,27 @@ export default function MatchScreen() {
 
   // ---- Results overlay (auto on match end, or when a spectator opts in) ----
   if (matchResults && (matchEnded || showResults)) {
-    return <ResultsView results={matchResults} skinColor={skinColor} username={user?.username} oldXp={user?.progression?.xp ?? 0} victoryAnim={user?.equipped_cosmetics?.victory_anim} onExit={leave} />;
+    return (
+      <ResultsView
+        results={matchResults}
+        skinColor={skinColor}
+        username={user?.username}
+        oldXp={user?.progression?.xp ?? 0}
+        victoryAnim={user?.equipped_cosmetics?.victory_anim}
+        onExit={leave}
+      />
+    );
   }
 
   // ---- Lobby ----
   if (state && state.phase === "lobby") {
     return (
-      <LobbyView state={state} insets={insets} onCancel={leave} onStart={startNow} />
+      <LobbyView
+        state={state}
+        insets={insets}
+        onCancel={leave}
+        onStart={startNow}
+      />
     );
   }
 
@@ -243,14 +276,15 @@ export default function MatchScreen() {
 
   const ability = me?.ability ? ABILITY_META[me.ability] : null;
   const elimEffect = user?.equipped_cosmetics?.elim_effect || "fade";
-  const revealEntering = (
-    {
-      fade: FadeIn.duration(250),
-      shatter: ZoomIn.springify().damping(6),
-      burn: FadeInDown.springify().damping(14),
-      vaporize: SlideInUp.springify().damping(15),
-    } as any
-  )[elimEffect] || FadeIn.duration(250);
+  const revealEntering =
+    (
+      {
+        fade: FadeIn.duration(250),
+        shatter: ZoomIn.springify().damping(6),
+        burn: FadeInDown.springify().damping(14),
+        vaporize: SlideInUp.springify().damping(15),
+      } as any
+    )[elimEffect] || FadeIn.duration(250);
 
   return (
     <View style={styles.root} testID="match-screen">
@@ -262,7 +296,12 @@ export default function MatchScreen() {
 
       {/* HUD row */}
       <View style={[styles.hudRow, { paddingTop: insets.top + space.sm }]}>
-        <GlassCard testID="elim-feed" style={styles.feedCard} innerStyle={{ flex: 1 }} intensity={25}>
+        <GlassCard
+          testID="elim-feed"
+          style={styles.feedCard}
+          innerStyle={{ flex: 1 }}
+          intensity={25}
+        >
           <Text style={styles.feedTitle}>KO FEED</Text>
           <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
             {(state?.feed || []).length === 0 && (
@@ -270,17 +309,21 @@ export default function MatchScreen() {
             )}
             {(state?.feed || []).map((f: any) => (
               <Text key={f.id} style={styles.feedLine} numberOfLines={1}>
-                {f.type === "win" ? (
-                  <Text style={{ color: colors.warning }}>👑 {f.victim} WINS</Text>
-                ) : f.self ? (
-                  <Text><Text style={{ color: colors.red }}>{f.victim}</Text>&apos;s press backfired</Text>
-                ) : (
+                {f.type === "win" ?
+                  <Text style={{ color: colors.warning }}>
+                    👑 {f.victim} WINS
+                  </Text>
+                : f.self ?
                   <Text>
+                    <Text style={{ color: colors.red }}>{f.victim}</Text>&apos;s
+                    press backfired
+                  </Text>
+                : <Text>
                     <Text style={{ color: colors.amber }}>{f.killer}</Text>
                     {" KO'd "}
                     <Text style={{ color: colors.onSurface3 }}>{f.victim}</Text>
                   </Text>
-                )}
+                }
               </Text>
             ))}
           </ScrollView>
@@ -288,23 +331,32 @@ export default function MatchScreen() {
 
         <View style={styles.statsCol}>
           <GlassCard style={styles.statCard} intensity={25}>
-            <Text style={styles.statNum} testID="remaining-count">{state?.players_alive ?? "—"}</Text>
+            <Text style={styles.statNum} testID="remaining-count">
+              {state?.players_alive ?? "—"}
+            </Text>
             <Text style={styles.statCap}>REMAINING</Text>
           </GlassCard>
           <GlassCard style={styles.statCard} intensity={25}>
-            <Text style={[styles.statNum, { color: colors.amber }]} testID="kill-count">
+            <Text
+              style={[styles.statNum, { color: colors.amber }]}
+              testID="kill-count"
+            >
               {me?.kills ?? 0}
             </Text>
-            <Text style={styles.statCap}>KOs · {localProtection}% KO GUARD</Text>
+            <Text style={styles.statCap}>
+              KOs · {localProtection}% KO GUARD
+            </Text>
           </GlassCard>
         </View>
       </View>
 
       {/* Equipped ability (top HUD — kept away from the button/hint text) */}
-      {ability ? (
+      {ability ?
         <Pressable
           testID="ability-button"
-          disabled={me?.ability_used || !me?.alive || ability.type === "defensive"}
+          disabled={
+            me?.ability_used || !me?.alive || ability.type === "defensive"
+          }
           onPress={() => {
             if (ability.type !== "defensive" && !me?.ability_used) {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -320,27 +372,42 @@ export default function MatchScreen() {
           <MaterialCommunityIcons
             name={ability.icon as any}
             size={20}
-            color={me?.ability_used ? colors.muted : armed ? "#fff" : colors.amber}
+            color={
+              me?.ability_used ? colors.muted
+              : armed ?
+                "#fff"
+              : colors.amber
+            }
           />
-          <Text style={[styles.abilityName, { flex: 1 }, me?.ability_used && { color: colors.muted }]} numberOfLines={1}>
+          <Text
+            style={[
+              styles.abilityName,
+              { flex: 1 },
+              me?.ability_used && { color: colors.muted },
+            ]}
+            numberOfLines={1}
+          >
             {ability.name}
           </Text>
           <Text style={styles.abilityTopHint} numberOfLines={1}>
-            {me?.ability_used
-              ? "USED"
-              : ability.type === "defensive"
-                ? "AUTO"
-                : armed
-                  ? "ARMED"
-                  : "TAP TO ARM"}
+            {me?.ability_used ?
+              "USED"
+            : ability.type === "defensive" ?
+              "AUTO"
+            : armed ?
+              "ARMED"
+            : "TAP TO ARM"}
           </Text>
         </Pressable>
-      ) : (
-        <View style={[styles.abilityTop, { opacity: 0.6 }]}>
-          <MaterialCommunityIcons name="flash-off" size={20} color={colors.muted} />
+      : <View style={[styles.abilityTop, { opacity: 0.6 }]}>
+          <MaterialCommunityIcons
+            name="flash-off"
+            size={20}
+            color={colors.muted}
+          />
           <Text style={styles.abilityTopHint}>No ability equipped</Text>
         </View>
-      )}
+      }
 
       {/* Center: danger + button */}
       <View style={styles.center}>
@@ -352,18 +419,39 @@ export default function MatchScreen() {
         <View style={styles.panicWrap}>
           {me?.alive && <ButtonFX type={buttonFx} size={208} />}
           {me?.alive && burstKey > 0 && (
-            <PressBurst key={burstKey} type={buttonFx} color={skinColor} size={208} />
+            <PressBurst
+              key={burstKey}
+              type={buttonFx}
+              color={skinColor}
+              size={208}
+            />
           )}
           <Animated.View style={btnStyle}>
-            <Pressable testID="panic-button" onPress={onPanic} disabled={!canPress}>
-              <View style={[styles.panicOuter, { borderColor: dColor, opacity: canPress ? 1 : 0.5 }]}>
-                <SkinSurface skinId={skinId} color={skinColor} size={188} radius={94}>
+            <Pressable
+              testID="panic-button"
+              onPress={onPanic}
+              disabled={!canPress}
+            >
+              <View
+                style={[
+                  styles.panicOuter,
+                  { borderColor: dColor, opacity: canPress ? 1 : 0.5 },
+                ]}
+              >
+                <SkinSurface
+                  skinId={skinId}
+                  color={skinColor}
+                  size={188}
+                  radius={94}
+                >
                   <MaterialCommunityIcons
                     name="gesture-tap-button"
                     size={38}
                     color="rgba(255,255,255,0.9)"
                   />
-                  <Text style={styles.panicText}>{me?.alive ? "PRESS" : "OUT"}</Text>
+                  <Text style={styles.panicText}>
+                    {me?.alive ? "PRESS" : "OUT"}
+                  </Text>
                 </SkinSurface>
               </View>
             </Pressable>
@@ -371,12 +459,14 @@ export default function MatchScreen() {
         </View>
 
         <Text style={styles.hint}>
-          {me?.alive
-            ? "The longer you hold, the more XP you bank — but your pressure keeps rising."
-            : "You are spectating…"}
+          {me?.alive ?
+            "The longer you hold, the more XP you bank — but your pressure keeps rising."
+          : "You are spectating…"}
         </Text>
         {me?.alive && (me?.hold_xp ?? 0) > 0 && (
-          <Text style={styles.holdXp} testID="hold-xp">PATIENCE BANKED +{me.hold_xp} XP</Text>
+          <Text style={styles.holdXp} testID="hold-xp">
+            PATIENCE BANKED +{me.hold_xp} XP
+          </Text>
         )}
       </View>
 
@@ -387,7 +477,9 @@ export default function MatchScreen() {
           style={[styles.revealWrap, { pointerEvents: "none" }]}
         >
           <View style={[styles.revealBanner, { borderColor: reveal.tone }]}>
-            <Text style={[styles.revealText, { color: reveal.tone }]}>{reveal.text}</Text>
+            <Text style={[styles.revealText, { color: reveal.tone }]}>
+              {reveal.text}
+            </Text>
           </View>
         </Animated.View>
       )}
@@ -414,14 +506,26 @@ function LobbyView({ state, insets, onCancel, onStart }: any) {
 
   return (
     <View style={styles.root} testID="lobby-screen">
-      <LinearGradient colors={["#2A0705", colors.surface]} style={StyleSheet.absoluteFill} />
-      <View style={{ paddingTop: insets.top + space.xl, alignItems: "center", flex: 1, paddingHorizontal: space.xl }}>
+      <LinearGradient
+        colors={["#2A0705", colors.surface]}
+        style={StyleSheet.absoluteFill}
+      />
+      <View
+        style={{
+          paddingTop: insets.top + space.xl,
+          alignItems: "center",
+          flex: 1,
+          paddingHorizontal: space.xl,
+        }}
+      >
         <Text style={styles.lobbyTitle}>LOBBY</Text>
         <Text style={styles.lobbyCountdown} testID="lobby-countdown">
           {Math.ceil(state.countdown ?? 0)}
         </Text>
         <Text style={styles.lobbySub}>
-          {state.party_code ? "Waiting for your squad…" : "Preparing the arena…"}
+          {state.party_code ?
+            "Waiting for your squad…"
+          : "Preparing the arena…"}
         </Text>
 
         {state.party_code && (
@@ -435,10 +539,16 @@ function LobbyView({ state, insets, onCancel, onStart }: any) {
             style={styles.partyCodeBox}
           >
             <View>
-              <Text style={styles.partyCodeLabel}>PARTY CODE · TAP TO SHARE</Text>
+              <Text style={styles.partyCodeLabel}>
+                PARTY CODE · TAP TO SHARE
+              </Text>
               <Text style={styles.partyCodeValue}>{state.party_code}</Text>
             </View>
-            <MaterialCommunityIcons name="share-variant" size={22} color={colors.amber} />
+            <MaterialCommunityIcons
+              name="share-variant"
+              size={22}
+              color={colors.amber}
+            />
           </Pressable>
         )}
 
@@ -446,70 +556,80 @@ function LobbyView({ state, insets, onCancel, onStart }: any) {
           <Animated.View style={[styles.lobbyFill, fillStyle]} />
         </View>
         <Text style={styles.lobbyCount} testID="lobby-loaded">
-          {progress >= 0.99 ? "ARENA READY" : `LOADING PLAYERS · ${loaded} / ${total}`}
+          {progress >= 0.99 ?
+            "ARENA READY"
+          : `LOADING PLAYERS · ${loaded} / ${total}`}
         </Text>
 
-        <ScrollView style={{ marginTop: space.xl, width: "100%" }} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={{ marginTop: space.xl, width: "100%" }}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.lobbyGrid}>
             {(state.lobby_players || []).map((p: any, i: number) => (
               <View key={i} style={styles.lobbyChip}>
-                <MaterialCommunityIcons name="account" size={14} color={colors.amber} />
-                <Text style={styles.lobbyChipText} numberOfLines={1}>{p.name}</Text>
+                <MaterialCommunityIcons
+                  name="account"
+                  size={14}
+                  color={colors.amber}
+                />
+                <Text style={styles.lobbyChipText} numberOfLines={1}>
+                  {p.name}
+                </Text>
               </View>
             ))}
           </View>
         </ScrollView>
       </View>
-      <View style={{ padding: space.xl, paddingBottom: insets.bottom + space.xl }}>
+      <View
+        style={{ padding: space.xl, paddingBottom: insets.bottom + space.xl }}
+      >
         {state.party_code && (
-          <Pressable testID="lobby-start-now" onPress={onStart} style={styles.startNowBtn}>
-            <MaterialCommunityIcons name="rocket-launch" size={20} color="#fff" />
+          <Pressable
+            testID="lobby-start-now"
+            onPress={onStart}
+            style={styles.startNowBtn}
+          >
+            <MaterialCommunityIcons
+              name="rocket-launch"
+              size={20}
+              color="#fff"
+            />
             <Text style={styles.startNowText}>START NOW</Text>
           </Pressable>
         )}
-        <Pressable testID="lobby-cancel" onPress={onCancel} style={styles.cancelBtn}>
+        <Pressable
+          testID="lobby-cancel"
+          onPress={onCancel}
+          style={styles.cancelBtn}
+        >
           <Text style={styles.cancelText}>LEAVE LOBBY</Text>
         </Pressable>
       </View>
     </View>
   );
 }
+async function isNaturalInterstitialDue(): Promise<boolean> {
+  try {
+    const status = await api.adsStatus();
+    return status.mandatory_due;
+  } catch (error) {
+    console.error("[Ads] Failed to check interstitial status:", error);
+
+    // Do not delay or trap the player when the backend is unavailable.
+    return false;
+  }
+}
 function useMandatoryAdExit(onExit: () => void) {
   const [busy, setBusy] = useState(false);
   const [showAd, setShowAd] = useState(false);
-  const [mandatoryDue, setMandatoryDue] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-
-    api
-      .adsStatus()
-      .then((status) => {
-        if (active) {
-          setMandatoryDue(status.mandatory_due);
-        }
-      })
-      .catch((error) => {
-        console.error(
-          "[Ads] Failed to retrieve mandatory ad status:",
-          error,
-        );
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
 
   const markAdSeen = async (): Promise<boolean> => {
     try {
       await api.adsSeen();
       return true;
     } catch (error) {
-      console.error(
-        "[Ads] Failed to record interstitial as seen:",
-        error,
-      );
+      console.error("[Ads] Failed to record interstitial as seen:", error);
 
       return false;
     }
@@ -520,50 +640,49 @@ function useMandatoryAdExit(onExit: () => void) {
       return;
     }
 
-    if (!mandatoryDue) {
+    setBusy(true);
+
+    const interstitialDue = await isNaturalInterstitialDue();
+
+    if (!interstitialDue) {
+      setBusy(false);
       onExit();
       return;
     }
 
-    if (adsSupported) {
-      setBusy(true);
-
-      try {
-        const outcome = await showInterstitialAd();
-
-        // Only reset the cooldown after the interstitial was actually
-        // displayed and closed.
-        if (outcome === "closed") {
-          await markAdSeen();
-        } else {
-          console.warn(
-            "[AdMob] Interstitial did not complete:",
-            outcome,
-          );
-        }
-      } finally {
-        setBusy(false);
-
-        // An unavailable ad should never trap the player on this screen.
-        onExit();
-      }
-
+    if (!adsSupported) {
+      // Expo Go and web use the simulated overlay.
+      setBusy(false);
+      setShowAd(true);
       return;
     }
 
-    // Expo Go and web use the simulated fallback.
-    setShowAd(true);
+    try {
+      const outcome = await showInterstitialAd();
+
+      if (outcome === "closed") {
+        await markAdSeen();
+      } else {
+        console.warn("[AdMob] Interstitial did not complete:", outcome);
+      }
+    } finally {
+      setBusy(false);
+
+      // An unavailable ad should never trap the player.
+      onExit();
+    }
   };
 
-  const AdPortal = showAd ? (
-    <AdOverlay
-      mode="mandatory"
-      reward={0}
-      onSkip={onExit}
-      onClaim={markAdSeen}
-      onProceed={onExit}
-    />
-  ) : null;
+  const AdPortal =
+    showAd ?
+      <AdOverlay
+        mode="mandatory"
+        reward={0}
+        onSkip={onExit}
+        onClaim={markAdSeen}
+        onProceed={onExit}
+      />
+    : null;
 
   return {
     handleExit,
@@ -598,87 +717,78 @@ function useDoubleXpAd() {
     };
   }, []);
 
-const claimAd = async (): Promise<boolean> => {
-  try {
-    await api.claimAdReward();
-
-    Haptics.notificationAsync(
-      Haptics.NotificationFeedbackType.Success,
-    );
-
-    return true;
-  } catch (error) {
-    console.error(
-      "[Ads] Failed to apply Double XP reward:",
-      error,
-    );
-
-    return false;
-  }
-};
-
-const handleDoubleXp = async () => {
-  if (busy) {
-    return;
-  }
-
-  if (adsSupported) {
-    setBusy(true);
-
+  const claimAd = async (): Promise<boolean> => {
     try {
-      const outcome = await showRewardedAd(
-        user?.id || "guest",
-      );
+      await api.claimAdReward();
 
-      if (outcome === "earned") {
-        const rewardApplied = await claimAd();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-        if (rewardApplied) {
-          setOffered(false);
-          setClaimed(true);
-        }
+      return true;
+    } catch (error) {
+      console.error("[Ads] Failed to apply Double XP reward:", error);
 
-        return;
-      }
+      return false;
+    }
+  };
 
-      if (outcome === "closed") {
-        // The user closed the ad without earning the reward.
-        setOffered(false);
-        return;
-      }
-
-      // Keep the offer visible after an error so it can be retried.
-      console.warn(
-        "[AdMob] Rewarded ad did not complete:",
-        outcome,
-      );
-    } finally {
-      setBusy(false);
+  const handleDoubleXp = async () => {
+    if (busy) {
+      return;
     }
 
-    return;
-  }
+    if (adsSupported) {
+      setBusy(true);
 
-  // Expo Go and web use the simulated fallback.
-  setShowAd(true);
-};
+      try {
+        const outcome = await showRewardedAd(user?.id || "guest");
 
-  const AdPortal = showAd ? (
-    <AdOverlay
-      mode="double"
-      reward={reward}
-      onSkip={() => {
-        setShowAd(false);
-        setOffered(false);
-      }}
-      onClaim={claimAd}
-      onProceed={() => {
-        setShowAd(false);
-        setOffered(false);
-        setClaimed(true);
-      }}
-    />
-  ) : null;
+        if (outcome === "earned") {
+          const rewardApplied = await claimAd();
+
+          if (rewardApplied) {
+            setOffered(false);
+            setClaimed(true);
+          }
+
+          return;
+        }
+
+        if (outcome === "closed") {
+          // The user closed the ad without earning the reward.
+          setOffered(false);
+          return;
+        }
+
+        // Keep the offer visible after an error so it can be retried.
+        console.warn("[AdMob] Rewarded ad did not complete:", outcome);
+      } finally {
+        setBusy(false);
+      }
+
+      return;
+    }
+
+    // Expo Go and web use the simulated fallback.
+    setShowAd(true);
+  };
+
+  const AdPortal =
+    showAd ?
+      <AdOverlay
+        mode="double"
+        reward={reward}
+        onSkip={() => {
+          setShowAd(false);
+          setOffered(false);
+        }}
+        onClaim={claimAd}
+        onProceed={() => {
+          setShowAd(false);
+          setOffered(false);
+          setClaimed(true);
+        }}
+      />
+    : null;
 
   return { offered, reward, busy, claimed, handleDoubleXp, AdPortal };
 }
@@ -694,7 +804,13 @@ function SpectatorView({ state, insets, onViewResults, onExit }: any) {
         colors={["#160303", "#0C0202", colors.surface]}
         style={StyleSheet.absoluteFill}
       />
-      <View style={{ paddingTop: insets.top + space.xl, paddingHorizontal: space.xl, flex: 1 }}>
+      <View
+        style={{
+          paddingTop: insets.top + space.xl,
+          paddingHorizontal: space.xl,
+          flex: 1,
+        }}
+      >
         <View style={styles.specHeader}>
           <MaterialCommunityIcons name="eye" size={18} color={colors.amber} />
           <Text style={styles.specTag}>SPECTATING</Text>
@@ -703,46 +819,66 @@ function SpectatorView({ state, insets, onViewResults, onExit }: any) {
         <View style={styles.specHero}>
           <MaterialCommunityIcons name="skull" size={38} color={colors.red} />
           <Text style={styles.specOut}>YOU'RE OUT</Text>
-          {placement ? (
-            <Text style={styles.specPlace} testID="spectator-placement">Out at #{placement} of 100</Text>
-          ) : null}
+          {placement ?
+            <Text style={styles.specPlace} testID="spectator-placement">
+              Out at #{placement} of 100
+            </Text>
+          : null}
         </View>
 
         <View style={styles.specStatsRow}>
           <View style={styles.specStat}>
-            <Text style={styles.specStatNum} testID="spectator-remaining">{state.players_alive}</Text>
+            <Text style={styles.specStatNum} testID="spectator-remaining">
+              {state.players_alive}
+            </Text>
             <Text style={styles.specStatCap}>STILL ALIVE</Text>
           </View>
           <View style={styles.specStat}>
-            <Text style={[styles.specStatNum, { color: colors.amber }]}>{me?.kills ?? 0}</Text>
+            <Text style={[styles.specStatNum, { color: colors.amber }]}>
+              {me?.kills ?? 0}
+            </Text>
             <Text style={styles.specStatCap}>YOUR KOs</Text>
           </View>
         </View>
 
         <Text style={styles.specFeedTitle}>LIVE KO FEED</Text>
-        <ScrollView style={styles.specFeed} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.specFeed}
+          showsVerticalScrollIndicator={false}
+        >
           {(state.feed || []).length === 0 && (
             <Text style={styles.feedEmpty}>Awaiting the next press…</Text>
           )}
           {(state.feed || []).map((f: any) => (
             <Text key={f.id} style={styles.specFeedLine} numberOfLines={1}>
-              {f.type === "win" ? (
-                <Text style={{ color: colors.warning }}>👑 {f.victim} WINS</Text>
-              ) : f.self ? (
-                <Text><Text style={{ color: colors.red }}>{f.victim}</Text>&apos;s press backfired</Text>
-              ) : (
+              {f.type === "win" ?
+                <Text style={{ color: colors.warning }}>
+                  👑 {f.victim} WINS
+                </Text>
+              : f.self ?
                 <Text>
+                  <Text style={{ color: colors.red }}>{f.victim}</Text>&apos;s
+                  press backfired
+                </Text>
+              : <Text>
                   <Text style={{ color: colors.amber }}>{f.killer}</Text>
                   {" KO'd "}
                   <Text style={{ color: colors.onSurface3 }}>{f.victim}</Text>
                 </Text>
-              )}
+              }
             </Text>
           ))}
         </ScrollView>
       </View>
 
-      <View style={{ paddingHorizontal: space.xl, paddingTop: space.md, paddingBottom: insets.bottom + space.lg, gap: space.sm }}>
+      <View
+        style={{
+          paddingHorizontal: space.xl,
+          paddingTop: space.md,
+          paddingBottom: insets.bottom + space.lg,
+          gap: space.sm,
+        }}
+      >
         {dxp.offered && !dxp.claimed && (
           <Pressable
             testID="spectator-double-xp-btn"
@@ -750,24 +886,50 @@ function SpectatorView({ state, insets, onViewResults, onExit }: any) {
             onPress={dxp.handleDoubleXp}
             style={styles.specDoubleXpBtn}
           >
-            <MaterialCommunityIcons name="star-four-points" size={20} color={colors.surface} />
+            <MaterialCommunityIcons
+              name="star-four-points"
+              size={20}
+              color={colors.surface}
+            />
             <Text style={styles.specDoubleXpText}>
-              {dxp.busy ? "LOADING AD…" : `WATCH AD · DOUBLE XP (+${dxp.reward})`}
+              {dxp.busy ?
+                "LOADING AD…"
+              : `WATCH AD · DOUBLE XP (+${dxp.reward})`}
             </Text>
           </Pressable>
         )}
         {dxp.claimed && (
-          <View style={styles.specDoubleXpDone} testID="spectator-double-xp-done">
-            <MaterialCommunityIcons name="check-bold" size={18} color={colors.success} />
-            <Text style={styles.specDoubleXpDoneText}>DOUBLE XP APPLIED · +{dxp.reward}</Text>
+          <View
+            style={styles.specDoubleXpDone}
+            testID="spectator-double-xp-done"
+          >
+            <MaterialCommunityIcons
+              name="check-bold"
+              size={18}
+              color={colors.success}
+            />
+            <Text style={styles.specDoubleXpDoneText}>
+              DOUBLE XP APPLIED · +{dxp.reward}
+            </Text>
           </View>
         )}
-        <Pressable testID="spectator-results-btn" onPress={onViewResults} style={styles.specResultsBtn}>
+        <Pressable
+          testID="spectator-results-btn"
+          onPress={onViewResults}
+          style={styles.specResultsBtn}
+        >
           <MaterialCommunityIcons name="poll" size={20} color="#fff" />
           <Text style={styles.specResultsText}>VIEW MY RESULTS</Text>
         </Pressable>
-        <Pressable testID="spectator-leave-btn" onPress={handleExit} disabled={busy} style={styles.cancelBtn}>
-          <Text style={styles.cancelText}>{busy ? "LOADING AD…" : "LEAVE TO MENU"}</Text>
+        <Pressable
+          testID="spectator-leave-btn"
+          onPress={handleExit}
+          disabled={busy}
+          style={styles.cancelBtn}
+        >
+          <Text style={styles.cancelText}>
+            {busy ? "LOADING AD…" : "LEAVE TO MENU"}
+          </Text>
         </Pressable>
       </View>
       {AdPortal}
@@ -776,17 +938,27 @@ function SpectatorView({ state, insets, onViewResults, onExit }: any) {
   );
 }
 
-
 function makeTaunt(results: any, username: string): string {
   const p = results.placement;
-  if (results.won) return `${username} was the LAST ONE ALIVE. 99 pressed. One survived. 💀`;
-  if (results.self_eliminated) return `${username}'s press backfired at #${p}/100. 🤡`;
-  if (p <= 10) return `${username} clawed to #${p}/100 before the button blinked. 🔥`;
-  if (results.kills >= 3) return `${username} dropped ${results.kills} players before falling at #${p}/100. Revenge? 😏`;
+  if (results.won)
+    return `${username} was the LAST ONE ALIVE. 99 pressed. One survived. 💀`;
+  if (results.self_eliminated)
+    return `${username}'s press backfired at #${p}/100. 🤡`;
+  if (p <= 10)
+    return `${username} clawed to #${p}/100 before the button blinked. 🔥`;
+  if (results.kills >= 3)
+    return `${username} dropped ${results.kills} players before falling at #${p}/100. Revenge? 😏`;
   return `${username} went out at #${p}/100. Think you'd last longer? 👀`;
 }
 
-function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit }: any) {
+function ResultsView({
+  results,
+  skinColor,
+  username,
+  oldXp,
+  victoryAnim,
+  onExit,
+}: any) {
   const insets = useSafeAreaInsets();
   const won = results.won;
   const cardRef = useRef<View>(null);
@@ -802,10 +974,11 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
   const [showAd, setShowAd] = useState(false);
   const [adMode, setAdMode] = useState<"mandatory" | "double">("mandatory");
   const [adReward, setAdReward] = useState(0);
-  const [mandatoryDue, setMandatoryDue] = useState(false);
   const [offerDoubleXp, setOfferDoubleXp] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [completedChallenges, setCompletedChallenges] = useState<{ id: string; name: string; reward: number }[]>([]);
+  const [completedChallenges, setCompletedChallenges] = useState<
+    { id: string; name: string; reward: number }[]
+  >([]);
   const { user } = useAuth();
   const router = useRouter();
 
@@ -834,136 +1007,132 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
     };
   }, []);
 
-const claimAd = async (): Promise<boolean> => {
-  try {
-    await api.claimAdReward();
+  const claimAd = async (): Promise<boolean> => {
+    try {
+      await api.claimAdReward();
 
-    Haptics.notificationAsync(
-      Haptics.NotificationFeedbackType.Success,
-    );
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    return true;
-  } catch (error) {
-    console.error(
-      "[Ads] Failed to apply Double XP reward:",
-      error,
-    );
+      return true;
+    } catch (error) {
+      console.error("[Ads] Failed to apply Double XP reward:", error);
 
-    return false;
-  }
-};
-const markAdSeen = async (): Promise<boolean> => {
-  try {
-    await api.adsSeen();
-    return true;
-  } catch (error) {
-    console.error(
-      "[Ads] Failed to record interstitial as seen:",
-      error,
-    );
+      return false;
+    }
+  };
+  const markAdSeen = async (): Promise<boolean> => {
+    try {
+      await api.adsSeen();
+      return true;
+    } catch (error) {
+      console.error("[Ads] Failed to record interstitial as seen:", error);
 
-    return false;
-  }
-};
+      return false;
+    }
+  };
 
   useEffect(() => {
     let active = true;
     api
       .adsStatus()
-      .then((s) => {
-        if (!active) return;
-        setAdReward(s.reward);
-        setMandatoryDue(s.mandatory_due);
-        // The DOUBLE-XP offer appears at RANDOM when a reward is available.
-        setOfferDoubleXp(s.reward_available && Math.random() < 0.5);
+      .then((status) => {
+        if (!active) {
+          return;
+        }
+
+        setAdReward(status.reward);
+
+        setOfferDoubleXp(status.reward_available && Math.random() < 0.5);
       })
-      .catch(() => {});
+      .catch((error) => {
+        console.error("[Ads] Failed to retrieve rewarded ad status:", error);
+      });
     return () => {
       active = false;
     };
   }, []);
 
- const handleContinue = async () => {
+const handleContinue = async () => {
   if (busy) {
     return;
   }
 
-  if (!mandatoryDue) {
+  setBusy(true);
+
+  const interstitialDue =
+    await isNaturalInterstitialDue();
+
+  if (!interstitialDue) {
+    setBusy(false);
     onExit();
     return;
   }
 
-  if (adsSupported) {
-    setBusy(true);
-
-    try {
-      const outcome = await showInterstitialAd();
-
-      if (outcome === "closed") {
-        await markAdSeen();
-      } else {
-        console.warn(
-          "[AdMob] Interstitial did not complete:",
-          outcome,
-        );
-      }
-    } finally {
-      setBusy(false);
-      onExit();
-    }
-
+  if (!adsSupported) {
+    // Expo Go and web use the simulated overlay.
+    setBusy(false);
+    setAdMode("mandatory");
+    setShowAd(true);
     return;
   }
 
-  setAdMode("mandatory");
-  setShowAd(true);
+  try {
+    const outcome = await showInterstitialAd();
+
+    if (outcome === "closed") {
+      await markAdSeen();
+    } else {
+      console.warn(
+        "[AdMob] Interstitial did not complete:",
+        outcome,
+      );
+    }
+  } finally {
+    setBusy(false);
+    onExit();
+  }
 };
 
   // DOUBLE XP (offered at random): opt-in ad. Watch = double XP, skip = nothing.
-const handleDoubleXp = async () => {
-  if (busy) {
-    return;
-  }
-
-  if (adsSupported) {
-    setBusy(true);
-
-    try {
-      const outcome = await showRewardedAd(
-        user?.id || "guest",
-      );
-
-      if (outcome === "earned") {
-        const rewardApplied = await claimAd();
-
-        if (rewardApplied) {
-          onExit();
-        }
-
-        return;
-      }
-
-      if (outcome === "closed") {
-        // The player skipped the reward, so leave without extra XP.
-        onExit();
-        return;
-      }
-
-      // Stay on the results screen after an error so the player can retry.
-      console.warn(
-        "[AdMob] Rewarded ad did not complete:",
-        outcome,
-      );
-    } finally {
-      setBusy(false);
+  const handleDoubleXp = async () => {
+    if (busy) {
+      return;
     }
 
-    return;
-  }
+    if (adsSupported) {
+      setBusy(true);
 
-  setAdMode("double");
-  setShowAd(true);
-};
+      try {
+        const outcome = await showRewardedAd(user?.id || "guest");
+
+        if (outcome === "earned") {
+          const rewardApplied = await claimAd();
+
+          if (rewardApplied) {
+            onExit();
+          }
+
+          return;
+        }
+
+        if (outcome === "closed") {
+          // The player skipped the reward, so leave without extra XP.
+          onExit();
+          return;
+        }
+
+        // Stay on the results screen after an error so the player can retry.
+        console.warn("[AdMob] Rewarded ad did not complete:", outcome);
+      } finally {
+        setBusy(false);
+      }
+
+      return;
+    }
+
+    setAdMode("double");
+    setShowAd(true);
+  };
 
   const share = async () => {
     if (sharing) return;
@@ -971,9 +1140,15 @@ const handleDoubleXp = async () => {
     Haptics.selectionAsync();
     const message = `${taunt}\n\n🔴 PRESSURE — 100 enter, one survives. Can you beat me?`;
     try {
-      if (Platform.OS !== "web" && cardRef.current && (await Sharing.isAvailableAsync())) {
+      if (
+        Platform.OS !== "web" &&
+        cardRef.current &&
+        (await Sharing.isAvailableAsync())
+      ) {
         const uri = await captureRef(cardRef, { format: "png", quality: 0.95 });
-        await Sharing.shareAsync(uri, { dialogTitle: "Share your match recap" });
+        await Sharing.shareAsync(uri, {
+          dialogTitle: "Share your match recap",
+        });
       } else {
         await Share.share({ message });
       }
@@ -989,20 +1164,42 @@ const handleDoubleXp = async () => {
   };
 
   return (
-    <Animated.View entering={FadeIn.duration(300)} style={styles.root} testID="results-screen">
+    <Animated.View
+      entering={FadeIn.duration(300)}
+      style={styles.root}
+      testID="results-screen"
+    >
       <LinearGradient
-        colors={won ? ["#3D2E00", "#1A1300", colors.surface] : ["#2A0705", "#160303", colors.surface]}
+        colors={
+          won ?
+            ["#3D2E00", "#1A1300", colors.surface]
+          : ["#2A0705", "#160303", colors.surface]
+        }
         style={StyleSheet.absoluteFill}
       />
       {won && <VictoryFX type={victoryAnim} />}
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: space.xl, paddingTop: insets.top + space.xl }}
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: "center",
+          padding: space.xl,
+          paddingTop: insets.top + space.xl,
+        }}
         showsVerticalScrollIndicator={false}
       >
         {/* Shareable recap card */}
-        <View ref={cardRef} collapsable={false} style={styles.recapCard} testID="recap-card">
+        <View
+          ref={cardRef}
+          collapsable={false}
+          style={styles.recapCard}
+          testID="recap-card"
+        >
           <View style={styles.recapHead}>
-            <MaterialCommunityIcons name="alert-octagon" size={18} color={colors.red} />
+            <MaterialCommunityIcons
+              name="alert-octagon"
+              size={18}
+              color={colors.red}
+            />
             <Text style={styles.recapBrand}>PRESSURE</Text>
           </View>
           <MaterialCommunityIcons
@@ -1010,8 +1207,17 @@ const handleDoubleXp = async () => {
             size={64}
             color={won ? colors.warning : colors.red}
           />
-          <Text style={[styles.resultTitle, { color: won ? colors.warning : colors.red }]}>
-            {won ? "YOU SURVIVED" : results.self_eliminated ? "BACKFIRE" : "YOU'RE OUT"}
+          <Text
+            style={[
+              styles.resultTitle,
+              { color: won ? colors.warning : colors.red },
+            ]}
+          >
+            {won ?
+              "YOU SURVIVED"
+            : results.self_eliminated ?
+              "BACKFIRE"
+            : "YOU'RE OUT"}
           </Text>
           <Text style={styles.recapUser}>{username}</Text>
           <Text style={styles.resultPlace} testID="result-placement">
@@ -1025,18 +1231,26 @@ const handleDoubleXp = async () => {
             </View>
             <View style={styles.resultDivider} />
             <View style={styles.resultStat}>
-              <Text style={[styles.resultStatNum, { color: colors.amber }]}>+{results.xp_gained}</Text>
+              <Text style={[styles.resultStatNum, { color: colors.amber }]}>
+                +{results.xp_gained}
+              </Text>
               <Text style={styles.resultStatCap}>XP EARNED</Text>
             </View>
           </View>
 
           {(koBonus || results.patience_xp > 0) && (
             <View style={styles.bonusRow} testID="bonus-row">
-              <MaterialCommunityIcons name="star-four-points" size={16} color={colors.amber} />
+              <MaterialCommunityIcons
+                name="star-four-points"
+                size={16}
+                color={colors.amber}
+              />
               <Text style={styles.bonusText}>
                 {results.patience_xp > 0 && `Patience +${results.patience_xp} `}
-                {results.friend_kos > 0 && `· ${results.friend_kos} friend KO +${results.friend_kos * 50} `}
-                {results.rival_kos > 0 && `· ${results.rival_kos} rival KO +${results.rival_kos * 25}`}
+                {results.friend_kos > 0 &&
+                  `· ${results.friend_kos} friend KO +${results.friend_kos * 50} `}
+                {results.rival_kos > 0 &&
+                  `· ${results.rival_kos} rival KO +${results.rival_kos * 25}`}
               </Text>
             </View>
           )}
@@ -1045,11 +1259,21 @@ const handleDoubleXp = async () => {
         </View>
 
         {leveledUp && (
-          <Animated.View entering={FadeInDown.springify().damping(13)} style={styles.levelUp} testID="level-up-banner">
-            <MaterialCommunityIcons name="chevron-double-up" size={28} color={colors.warning} />
+          <Animated.View
+            entering={FadeInDown.springify().damping(13)}
+            style={styles.levelUp}
+            testID="level-up-banner"
+          >
+            <MaterialCommunityIcons
+              name="chevron-double-up"
+              size={28}
+              color={colors.warning}
+            />
             <View>
               <Text style={styles.levelUpTitle}>LEVEL UP!</Text>
-              <Text style={styles.levelUpSub}>Level {newLevel} · {rankName(newLevel)}</Text>
+              <Text style={styles.levelUpSub}>
+                Level {newLevel} · {rankName(newLevel)}
+              </Text>
             </View>
           </Animated.View>
         )}
@@ -1059,34 +1283,60 @@ const handleDoubleXp = async () => {
         )}
 
         {completedChallenges.length > 0 && (
-          <Animated.View entering={FadeInDown.springify().damping(14)} testID="challenge-toast">
-            <Pressable style={styles.challengeToast} onPress={() => router.push("/challenges")}>
+          <Animated.View
+            entering={FadeInDown.springify().damping(14)}
+            testID="challenge-toast"
+          >
+            <Pressable
+              style={styles.challengeToast}
+              onPress={() => router.push("/challenges")}
+            >
               <View style={styles.challengeToastIcon}>
-                <MaterialCommunityIcons name="target" size={22} color={colors.surface} />
+                <MaterialCommunityIcons
+                  name="target"
+                  size={22}
+                  color={colors.surface}
+                />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.challengeToastTitle}>
-                  {completedChallenges.length === 1
-                    ? "CHALLENGE COMPLETE!"
-                    : `${completedChallenges.length} CHALLENGES COMPLETE!`}
+                  {completedChallenges.length === 1 ?
+                    "CHALLENGE COMPLETE!"
+                  : `${completedChallenges.length} CHALLENGES COMPLETE!`}
                 </Text>
                 <Text style={styles.challengeToastSub} numberOfLines={1}>
-                  {completedChallenges.map((c) => c.name).join(" · ")} · tap to claim +
-                  {completedChallenges.reduce((s, c) => s + c.reward, 0)} XP
+                  {completedChallenges.map((c) => c.name).join(" · ")} · tap to
+                  claim +{completedChallenges.reduce((s, c) => s + c.reward, 0)}{" "}
+                  XP
                 </Text>
               </View>
-              <MaterialCommunityIcons name="chevron-right" size={22} color={colors.amber} />
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={22}
+                color={colors.amber}
+              />
             </Pressable>
           </Animated.View>
         )}
 
-        <Pressable testID="share-recap-btn" onPress={share} style={styles.shareBtn}>
+        <Pressable
+          testID="share-recap-btn"
+          onPress={share}
+          style={styles.shareBtn}
+        >
           <MaterialCommunityIcons name="share-variant" size={20} color="#fff" />
-          <Text style={styles.shareText}>{sharing ? "SHARING…" : "SHARE RECAP"}</Text>
+          <Text style={styles.shareText}>
+            {sharing ? "SHARING…" : "SHARE RECAP"}
+          </Text>
         </Pressable>
       </ScrollView>
 
-      <View style={[styles.resultFooter, { paddingBottom: insets.bottom + space.xl }]}>
+      <View
+        style={[
+          styles.resultFooter,
+          { paddingBottom: insets.bottom + space.xl },
+        ]}
+      >
         {offerDoubleXp && won && (
           <Pressable
             testID="double-xp-btn"
@@ -1094,8 +1344,14 @@ const handleDoubleXp = async () => {
             onPress={handleDoubleXp}
             style={styles.doubleXpBtn}
           >
-            <MaterialCommunityIcons name="star-four-points" size={20} color={colors.surface} />
-            <Text style={styles.doubleXpText}>WATCH AD · DOUBLE XP (+{adReward})</Text>
+            <MaterialCommunityIcons
+              name="star-four-points"
+              size={20}
+              color={colors.surface}
+            />
+            <Text style={styles.doubleXpText}>
+              WATCH AD · DOUBLE XP (+{adReward})
+            </Text>
           </Pressable>
         )}
         <Pressable
@@ -1104,7 +1360,9 @@ const handleDoubleXp = async () => {
           onPress={handleContinue}
           style={styles.returnBtn}
         >
-          <Text style={styles.returnText}>{busy ? "LOADING AD…" : "CONTINUE"}</Text>
+          <Text style={styles.returnText}>
+            {busy ? "LOADING AD…" : "CONTINUE"}
+          </Text>
         </Pressable>
       </View>
 
@@ -1132,34 +1390,38 @@ function AdOverlay({ mode, reward, onSkip, onClaim, onProceed }: any) {
   }, []);
   const done = left <= 0;
 
-const act = async () => {
-  if (busy) {
-    return;
-  }
+  const act = async () => {
+    if (busy) {
+      return;
+    }
 
-  setBusy(true);
+    setBusy(true);
 
-  const claimSucceeded = await onClaim();
+    const claimSucceeded = await onClaim();
 
-  if (mandatory) {
-    // Never trap the player because the tracking endpoint failed.
-    onProceed();
-    return;
-  }
+    if (mandatory) {
+      // Never trap the player because the tracking endpoint failed.
+      onProceed();
+      return;
+    }
 
-  if (claimSucceeded === false) {
-    // Reward was not applied. Keep the simulated ad open so the
-    // player is not falsely told that Double XP succeeded.
-    setBusy(false);
-    return;
-  }
+    if (claimSucceeded === false) {
+      // Reward was not applied. Keep the simulated ad open so the
+      // player is not falsely told that Double XP succeeded.
+      setBusy(false);
+      return;
+    }
 
-  setClaimed(true);
-  setTimeout(onProceed, 1300);
-};
+    setClaimed(true);
+    setTimeout(onProceed, 1300);
+  };
 
   return (
-    <Animated.View entering={FadeIn.duration(200)} style={styles.adWrap} testID="ad-overlay">
+    <Animated.View
+      entering={FadeIn.duration(200)}
+      style={styles.adWrap}
+      testID="ad-overlay"
+    >
       <View style={styles.adCard}>
         <View style={styles.adHeader}>
           <View style={styles.adBadge}>
@@ -1167,47 +1429,88 @@ const act = async () => {
           </View>
           <Text style={styles.adHeaderText}>ADVERTISEMENT · SIMULATED</Text>
           {/* Skip (no reward) only for the optional double-XP ad. */}
-          {!mandatory ? (
-            <Pressable testID="ad-skip" onPress={onSkip} style={styles.adSkip} hitSlop={10}>
-              <MaterialCommunityIcons name="close" size={18} color={colors.muted} />
+          {!mandatory ?
+            <Pressable
+              testID="ad-skip"
+              onPress={onSkip}
+              style={styles.adSkip}
+              hitSlop={10}
+            >
+              <MaterialCommunityIcons
+                name="close"
+                size={18}
+                color={colors.muted}
+              />
             </Pressable>
-          ) : (
-            <View style={styles.adSkip} />
-          )}
+          : <View style={styles.adSkip} />}
         </View>
         <LinearGradient colors={["#0A3D62", "#0C2461"]} style={styles.adBanner}>
-          <MaterialCommunityIcons name="sword-cross" size={56} color="#FFD700" />
+          <MaterialCommunityIcons
+            name="sword-cross"
+            size={56}
+            color="#FFD700"
+          />
           <Text style={styles.adBannerTitle}>GALAXY CLASH</Text>
-          <Text style={styles.adBannerSub}>Build your empire · Install free</Text>
+          <Text style={styles.adBannerSub}>
+            Build your empire · Install free
+          </Text>
           <View style={styles.adStars}>
             {[0, 1, 2, 3, 4].map((i) => (
-              <MaterialCommunityIcons key={i} name="star" size={16} color="#FFD700" />
+              <MaterialCommunityIcons
+                key={i}
+                name="star"
+                size={16}
+                color="#FFD700"
+              />
             ))}
           </View>
         </LinearGradient>
-        {mandatory ? (
-          <Text style={styles.adRewardLine}>Sponsored break — thanks for playing Pressure!</Text>
-        ) : claimed ? (
-          <Text style={[styles.adRewardLine, { color: colors.success }]} testID="ad-claimed">
+        {mandatory ?
+          <Text style={styles.adRewardLine}>
+            Sponsored break — thanks for playing Pressure!
+          </Text>
+        : claimed ?
+          <Text
+            style={[styles.adRewardLine, { color: colors.success }]}
+            testID="ad-claimed"
+          >
             DOUBLE XP! +{reward} bonus applied 🎉
           </Text>
-        ) : (
-          <Text style={styles.adRewardLine}>Watch fully to earn +{reward} bonus XP (DOUBLE your match XP). Skip = no bonus.</Text>
-        )}
-        {claimed ? null : done ? (
-          <Pressable testID="ad-claim" disabled={busy} onPress={act} style={styles.adClaimBtn}>
-            <MaterialCommunityIcons name={mandatory ? "play" : "gift"} size={20} color={colors.surface} />
+        : <Text style={styles.adRewardLine}>
+            Watch fully to earn +{reward} bonus XP (DOUBLE your match XP). Skip
+            = no bonus.
+          </Text>
+        }
+        {claimed ?
+          null
+        : done ?
+          <Pressable
+            testID="ad-claim"
+            disabled={busy}
+            onPress={act}
+            style={styles.adClaimBtn}
+          >
+            <MaterialCommunityIcons
+              name={mandatory ? "play" : "gift"}
+              size={20}
+              color={colors.surface}
+            />
             <Text style={styles.adClaimText}>
-              {busy ? "…" : mandatory ? "CONTINUE" : `CLAIM +${reward} XP`}
+              {busy ?
+                "…"
+              : mandatory ?
+                "CONTINUE"
+              : `CLAIM +${reward} XP`}
             </Text>
           </Pressable>
-        ) : (
-          <View style={styles.adCountdown}>
+        : <View style={styles.adCountdown}>
             <Text style={styles.adCountdownText}>
-              {mandatory ? `Continue in ${left}s…` : `Reward unlocks in ${left}s…`}
+              {mandatory ?
+                `Continue in ${left}s…`
+              : `Reward unlocks in ${left}s…`}
             </Text>
           </View>
-        )}
+        }
       </View>
     </Animated.View>
   );
@@ -1224,16 +1527,50 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: space.xs,
   },
-  feedEmpty: { fontFamily: font.regular, fontSize: type.sm, color: colors.muted },
-  feedLine: { fontFamily: font.medium, fontSize: type.sm, marginBottom: 3, color: colors.onSurface2 },
+  feedEmpty: {
+    fontFamily: font.regular,
+    fontSize: type.sm,
+    color: colors.muted,
+  },
+  feedLine: {
+    fontFamily: font.medium,
+    fontSize: type.sm,
+    marginBottom: 3,
+    color: colors.onSurface2,
+  },
   statsCol: { flex: 1, gap: space.sm, height: 140 },
-  statCard: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: space.sm },
-  statNum: { fontFamily: font.displayBold, fontSize: 34, color: colors.onSurface, lineHeight: 38 },
-  statCap: { fontFamily: font.medium, fontSize: 9, color: colors.muted, letterSpacing: 0.5 },
+  statCard: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: space.sm,
+  },
+  statNum: {
+    fontFamily: font.displayBold,
+    fontSize: 34,
+    color: colors.onSurface,
+    lineHeight: 38,
+  },
+  statCap: {
+    fontFamily: font.medium,
+    fontSize: 9,
+    color: colors.muted,
+    letterSpacing: 0.5,
+  },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  dangerLabel: { fontFamily: font.displaySemi, fontSize: type.lg, color: colors.onSurface3, letterSpacing: 4 },
+  dangerLabel: {
+    fontFamily: font.displaySemi,
+    fontSize: type.lg,
+    color: colors.onSurface3,
+    letterSpacing: 4,
+  },
   dangerNum: { fontFamily: font.displayBold, fontSize: 74, lineHeight: 78 },
-  panicWrap: { width: 236, height: 236, alignItems: "center", justifyContent: "center" },
+  panicWrap: {
+    width: 236,
+    height: 236,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   panicOuter: {
     width: 208,
     height: 208,
@@ -1243,9 +1580,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  panicText: { fontFamily: font.displayBold, fontSize: 32, color: "#fff", letterSpacing: 2, marginTop: 2 },
-  hint: { fontFamily: font.regular, fontSize: type.sm, color: colors.muted, marginTop: space.md, textAlign: "center", paddingHorizontal: space.xl },
-  holdXp: { fontFamily: font.displaySemi, fontSize: type.sm, color: colors.amber, marginTop: space.xs, letterSpacing: 0.5 },
+  panicText: {
+    fontFamily: font.displayBold,
+    fontSize: 32,
+    color: "#fff",
+    letterSpacing: 2,
+    marginTop: 2,
+  },
+  hint: {
+    fontFamily: font.regular,
+    fontSize: type.sm,
+    color: colors.muted,
+    marginTop: space.md,
+    textAlign: "center",
+    paddingHorizontal: space.xl,
+  },
+  holdXp: {
+    fontFamily: font.displaySemi,
+    fontSize: type.sm,
+    color: colors.amber,
+    marginTop: space.xs,
+    letterSpacing: 0.5,
+  },
   bottom: { paddingHorizontal: space.xl },
   abilityTop: {
     flexDirection: "row",
@@ -1260,7 +1616,12 @@ const styles = StyleSheet.create({
     paddingVertical: space.sm,
     paddingHorizontal: space.md,
   },
-  abilityTopHint: { fontFamily: font.semi, fontSize: type.sm, color: colors.muted, letterSpacing: 0.5 },
+  abilityTopHint: {
+    fontFamily: font.semi,
+    fontSize: type.sm,
+    color: colors.muted,
+    letterSpacing: 0.5,
+  },
   abilityBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -1274,9 +1635,24 @@ const styles = StyleSheet.create({
   },
   abilityArmed: { borderColor: colors.amber, backgroundColor: "#3A2A00" },
   abilityUsed: { opacity: 0.6 },
-  abilityName: { fontFamily: font.semi, fontSize: type.lg, color: colors.onSurface },
-  abilityHint: { fontFamily: font.medium, fontSize: type.sm, color: colors.muted, marginTop: 1 },
-  revealWrap: { position: "absolute", top: "38%", left: 0, right: 0, alignItems: "center" },
+  abilityName: {
+    fontFamily: font.semi,
+    fontSize: type.lg,
+    color: colors.onSurface,
+  },
+  abilityHint: {
+    fontFamily: font.medium,
+    fontSize: type.sm,
+    color: colors.muted,
+    marginTop: 1,
+  },
+  revealWrap: {
+    position: "absolute",
+    top: "38%",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+  },
   revealBanner: {
     backgroundColor: "rgba(15,15,19,0.92)",
     borderWidth: 2,
@@ -1284,11 +1660,30 @@ const styles = StyleSheet.create({
     paddingVertical: space.md,
     paddingHorizontal: space.xl,
   },
-  revealText: { fontFamily: font.displayBold, fontSize: type["2xl"], letterSpacing: 1 },
+  revealText: {
+    fontFamily: font.displayBold,
+    fontSize: type["2xl"],
+    letterSpacing: 1,
+  },
   // lobby
-  lobbyTitle: { fontFamily: font.displaySemi, fontSize: type.xl, color: colors.onSurface3, letterSpacing: 4 },
-  lobbyCountdown: { fontFamily: font.displayBold, fontSize: 96, color: colors.red, lineHeight: 100 },
-  lobbySub: { fontFamily: font.regular, fontSize: type.base, color: colors.muted, marginBottom: space.xl },
+  lobbyTitle: {
+    fontFamily: font.displaySemi,
+    fontSize: type.xl,
+    color: colors.onSurface3,
+    letterSpacing: 4,
+  },
+  lobbyCountdown: {
+    fontFamily: font.displayBold,
+    fontSize: 96,
+    color: colors.red,
+    lineHeight: 100,
+  },
+  lobbySub: {
+    fontFamily: font.regular,
+    fontSize: type.base,
+    color: colors.muted,
+    marginBottom: space.xl,
+  },
   partyCodeBox: {
     flexDirection: "row",
     alignItems: "center",
@@ -1302,8 +1697,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.xl,
     marginBottom: space.xl,
   },
-  partyCodeLabel: { fontFamily: font.medium, fontSize: type.sm, color: colors.muted, letterSpacing: 1 },
-  partyCodeValue: { fontFamily: font.displayBold, fontSize: 40, color: colors.amber, letterSpacing: 4 },
+  partyCodeLabel: {
+    fontFamily: font.medium,
+    fontSize: type.sm,
+    color: colors.muted,
+    letterSpacing: 1,
+  },
+  partyCodeValue: {
+    fontFamily: font.displayBold,
+    fontSize: 40,
+    color: colors.amber,
+    letterSpacing: 4,
+  },
   lobbyMeter: {
     width: "100%",
     height: 10,
@@ -1311,9 +1716,23 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     overflow: "hidden",
   },
-  lobbyFill: { height: "100%", backgroundColor: colors.red, borderRadius: radius.pill },
-  lobbyCount: { fontFamily: font.displaySemi, fontSize: type.lg, color: colors.onSurface2, marginTop: space.md },
-  lobbyGrid: { flexDirection: "row", flexWrap: "wrap", gap: space.sm, justifyContent: "center" },
+  lobbyFill: {
+    height: "100%",
+    backgroundColor: colors.red,
+    borderRadius: radius.pill,
+  },
+  lobbyCount: {
+    fontFamily: font.displaySemi,
+    fontSize: type.lg,
+    color: colors.onSurface2,
+    marginTop: space.md,
+  },
+  lobbyGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: space.sm,
+    justifyContent: "center",
+  },
   lobbyChip: {
     flexDirection: "row",
     alignItems: "center",
@@ -1324,7 +1743,11 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     maxWidth: 140,
   },
-  lobbyChipText: { fontFamily: font.medium, fontSize: type.sm, color: colors.onSurface3 },
+  lobbyChipText: {
+    fontFamily: font.medium,
+    fontSize: type.sm,
+    color: colors.onSurface3,
+  },
   cancelBtn: {
     height: 52,
     borderRadius: radius.md,
@@ -1343,8 +1766,18 @@ const styles = StyleSheet.create({
     gap: space.sm,
     marginBottom: space.md,
   },
-  startNowText: { fontFamily: font.displayBold, fontSize: type.xl, color: colors.surface, letterSpacing: 1 },
-  cancelText: { fontFamily: font.semi, fontSize: type.lg, color: colors.onSurface3, letterSpacing: 1 },
+  startNowText: {
+    fontFamily: font.displayBold,
+    fontSize: type.xl,
+    color: colors.surface,
+    letterSpacing: 1,
+  },
+  cancelText: {
+    fontFamily: font.semi,
+    fontSize: type.lg,
+    color: colors.onSurface3,
+    letterSpacing: 1,
+  },
   // results
   recapCard: {
     backgroundColor: "rgba(20,20,26,0.85)",
@@ -1354,11 +1787,40 @@ const styles = StyleSheet.create({
     padding: space.xl,
     alignItems: "center",
   },
-  recapHead: { flexDirection: "row", alignItems: "center", gap: space.xs, marginBottom: space.md },
-  recapBrand: { fontFamily: font.displayBold, fontSize: type.base, color: colors.onSurface3, letterSpacing: 2, textAlign: "center" },
-  recapUser: { fontFamily: font.semi, fontSize: type.lg, color: colors.onSurface2, marginTop: 2, textAlign: "center" },
-  resultTitle: { fontFamily: font.displayBold, fontSize: 52, letterSpacing: 2, marginTop: space.sm, textAlign: "center" },
-  resultPlace: { fontFamily: font.displaySemi, fontSize: type["2xl"], color: colors.onSurface, marginTop: space.xs, textAlign: "center" },
+  recapHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.xs,
+    marginBottom: space.md,
+  },
+  recapBrand: {
+    fontFamily: font.displayBold,
+    fontSize: type.base,
+    color: colors.onSurface3,
+    letterSpacing: 2,
+    textAlign: "center",
+  },
+  recapUser: {
+    fontFamily: font.semi,
+    fontSize: type.lg,
+    color: colors.onSurface2,
+    marginTop: 2,
+    textAlign: "center",
+  },
+  resultTitle: {
+    fontFamily: font.displayBold,
+    fontSize: 52,
+    letterSpacing: 2,
+    marginTop: space.sm,
+    textAlign: "center",
+  },
+  resultPlace: {
+    fontFamily: font.displaySemi,
+    fontSize: type["2xl"],
+    color: colors.onSurface,
+    marginTop: space.xs,
+    textAlign: "center",
+  },
   resultStats: {
     flexDirection: "row",
     alignItems: "center",
@@ -1371,9 +1833,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: space["2xl"],
   },
   resultStat: { alignItems: "center", minWidth: 100 },
-  resultStatNum: { fontFamily: font.displayBold, fontSize: 40, color: colors.onSurface },
-  resultStatCap: { fontFamily: font.medium, fontSize: type.sm, color: colors.muted, letterSpacing: 0.5 },
-  resultDivider: { width: 1, height: 44, backgroundColor: colors.border, marginHorizontal: space.lg },
+  resultStatNum: {
+    fontFamily: font.displayBold,
+    fontSize: 40,
+    color: colors.onSurface,
+  },
+  resultStatCap: {
+    fontFamily: font.medium,
+    fontSize: type.sm,
+    color: colors.muted,
+    letterSpacing: 0.5,
+  },
+  resultDivider: {
+    width: 1,
+    height: 44,
+    backgroundColor: colors.border,
+    marginHorizontal: space.lg,
+  },
   bonusRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1384,7 +1860,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.md,
     marginTop: space.lg,
   },
-  bonusText: { fontFamily: font.semi, fontSize: type.sm, color: colors.amber, textAlign: "center" },
+  bonusText: {
+    fontFamily: font.semi,
+    fontSize: type.sm,
+    color: colors.amber,
+    textAlign: "center",
+  },
   levelUp: {
     flexDirection: "row",
     alignItems: "center",
@@ -1398,8 +1879,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.xl,
     marginTop: space.lg,
   },
-  levelUpTitle: { fontFamily: font.displayBold, fontSize: type.xl, color: colors.warning, letterSpacing: 1 },
-  levelUpSub: { fontFamily: font.semi, fontSize: type.base, color: colors.onSurface2 },
+  levelUpTitle: {
+    fontFamily: font.displayBold,
+    fontSize: type.xl,
+    color: colors.warning,
+    letterSpacing: 1,
+  },
+  levelUpSub: {
+    fontFamily: font.semi,
+    fontSize: type.base,
+    color: colors.onSurface2,
+  },
   taunt: {
     fontFamily: font.medium,
     fontSize: type.base,
@@ -1409,7 +1899,13 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     lineHeight: 20,
   },
-  selfElim: { fontFamily: font.regular, fontSize: type.base, color: colors.red, marginTop: space.lg, textAlign: "center" },
+  selfElim: {
+    fontFamily: font.regular,
+    fontSize: type.base,
+    color: colors.red,
+    marginTop: space.lg,
+    textAlign: "center",
+  },
   challengeToast: {
     flexDirection: "row",
     alignItems: "center",
@@ -1429,8 +1925,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  challengeToastTitle: { fontFamily: font.displaySemi, fontSize: type.lg, color: colors.amber, letterSpacing: 0.5 },
-  challengeToastSub: { fontFamily: font.regular, fontSize: type.sm, color: colors.onSurface3, marginTop: 1 },
+  challengeToastTitle: {
+    fontFamily: font.displaySemi,
+    fontSize: type.lg,
+    color: colors.amber,
+    letterSpacing: 0.5,
+  },
+  challengeToastSub: {
+    fontFamily: font.regular,
+    fontSize: type.sm,
+    color: colors.onSurface3,
+    marginTop: 1,
+  },
   shareBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -1443,7 +1949,12 @@ const styles = StyleSheet.create({
     borderColor: colors.borderStrong,
     marginTop: space.xl,
   },
-  shareText: { fontFamily: font.displaySemi, fontSize: type.lg, color: "#fff", letterSpacing: 1 },
+  shareText: {
+    fontFamily: font.displaySemi,
+    fontSize: type.lg,
+    color: "#fff",
+    letterSpacing: 1,
+  },
   adNote: {
     fontFamily: font.displaySemi,
     fontSize: type.sm,
@@ -1459,8 +1970,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  returnText: { fontFamily: font.displayBold, fontSize: type.xl, color: "#fff", letterSpacing: 1 },
-  resultFooter: { paddingHorizontal: space.xl, paddingTop: space.md, gap: space.md },
+  returnText: {
+    fontFamily: font.displayBold,
+    fontSize: type.xl,
+    color: "#fff",
+    letterSpacing: 1,
+  },
+  resultFooter: {
+    paddingHorizontal: space.xl,
+    paddingTop: space.md,
+    gap: space.md,
+  },
   doubleXpBtn: {
     height: 56,
     borderRadius: radius.md,
@@ -1470,7 +1990,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: space.sm,
   },
-  doubleXpText: { fontFamily: font.displayBold, fontSize: type.lg, color: colors.surface, letterSpacing: 0.5 },
+  doubleXpText: {
+    fontFamily: font.displayBold,
+    fontSize: type.lg,
+    color: colors.surface,
+    letterSpacing: 0.5,
+  },
   // Full-screen simulated ad
   adWrap: {
     ...StyleSheet.absoluteFillObject,
@@ -1485,10 +2010,31 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   adHeader: { flexDirection: "row", alignItems: "center", gap: space.sm },
-  adBadge: { backgroundColor: colors.amber, borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 2 },
-  adBadgeText: { fontFamily: font.bold, fontSize: 10, color: colors.surface, letterSpacing: 0.5 },
-  adHeaderText: { flex: 1, fontFamily: font.medium, fontSize: type.sm, color: colors.muted, letterSpacing: 1 },
-  adSkip: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+  adBadge: {
+    backgroundColor: colors.amber,
+    borderRadius: radius.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  adBadgeText: {
+    fontFamily: font.bold,
+    fontSize: 10,
+    color: colors.surface,
+    letterSpacing: 0.5,
+  },
+  adHeaderText: {
+    flex: 1,
+    fontFamily: font.medium,
+    fontSize: type.sm,
+    color: colors.muted,
+    letterSpacing: 1,
+  },
+  adSkip: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   adBanner: {
     flex: 1,
     borderRadius: radius.lg,
@@ -1497,8 +2043,17 @@ const styles = StyleSheet.create({
     marginVertical: space.xl,
     gap: space.sm,
   },
-  adBannerTitle: { fontFamily: font.displayBold, fontSize: type["4xl"], color: "#fff", letterSpacing: 2 },
-  adBannerSub: { fontFamily: font.regular, fontSize: type.base, color: "rgba(255,255,255,0.85)" },
+  adBannerTitle: {
+    fontFamily: font.displayBold,
+    fontSize: type["4xl"],
+    color: "#fff",
+    letterSpacing: 2,
+  },
+  adBannerSub: {
+    fontFamily: font.regular,
+    fontSize: type.base,
+    color: "rgba(255,255,255,0.85)",
+  },
   adStars: { flexDirection: "row", gap: 2, marginTop: space.sm },
   adRewardLine: {
     fontFamily: font.semi,
@@ -1516,7 +2071,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: space.sm,
   },
-  adClaimText: { fontFamily: font.displayBold, fontSize: type.xl, color: colors.surface, letterSpacing: 1 },
+  adClaimText: {
+    fontFamily: font.displayBold,
+    fontSize: type.xl,
+    color: colors.surface,
+    letterSpacing: 1,
+  },
   adCountdown: {
     height: 56,
     borderRadius: radius.md,
@@ -1526,13 +2086,37 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  adCountdownText: { fontFamily: font.semi, fontSize: type.base, color: colors.muted },
+  adCountdownText: {
+    fontFamily: font.semi,
+    fontSize: type.base,
+    color: colors.muted,
+  },
   // spectator
-  specHeader: { flexDirection: "row", alignItems: "center", gap: space.xs, alignSelf: "center", marginBottom: space.md },
-  specTag: { fontFamily: font.displaySemi, fontSize: type.lg, color: colors.amber, letterSpacing: 3 },
+  specHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.xs,
+    alignSelf: "center",
+    marginBottom: space.md,
+  },
+  specTag: {
+    fontFamily: font.displaySemi,
+    fontSize: type.lg,
+    color: colors.amber,
+    letterSpacing: 3,
+  },
   specHero: { alignItems: "center", gap: space.xs, marginBottom: space.lg },
-  specOut: { fontFamily: font.displayBold, fontSize: 34, color: colors.red, letterSpacing: 1 },
-  specPlace: { fontFamily: font.semi, fontSize: type.lg, color: colors.onSurface2 },
+  specOut: {
+    fontFamily: font.displayBold,
+    fontSize: 34,
+    color: colors.red,
+    letterSpacing: 1,
+  },
+  specPlace: {
+    fontFamily: font.semi,
+    fontSize: type.lg,
+    color: colors.onSurface2,
+  },
   specStatsRow: { flexDirection: "row", gap: space.md, marginBottom: space.lg },
   specStat: {
     flex: 1,
@@ -1543,9 +2127,25 @@ const styles = StyleSheet.create({
     paddingVertical: space.md,
     alignItems: "center",
   },
-  specStatNum: { fontFamily: font.displayBold, fontSize: 34, color: colors.onSurface, lineHeight: 38 },
-  specStatCap: { fontFamily: font.medium, fontSize: type.sm, color: colors.muted, letterSpacing: 0.5 },
-  specFeedTitle: { fontFamily: font.semi, fontSize: type.sm, color: colors.muted, letterSpacing: 1, marginBottom: space.sm },
+  specStatNum: {
+    fontFamily: font.displayBold,
+    fontSize: 34,
+    color: colors.onSurface,
+    lineHeight: 38,
+  },
+  specStatCap: {
+    fontFamily: font.medium,
+    fontSize: type.sm,
+    color: colors.muted,
+    letterSpacing: 0.5,
+  },
+  specFeedTitle: {
+    fontFamily: font.semi,
+    fontSize: type.sm,
+    color: colors.muted,
+    letterSpacing: 1,
+    marginBottom: space.sm,
+  },
   specFeed: {
     flex: 1,
     minHeight: 96,
@@ -1555,7 +2155,12 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: space.lg,
   },
-  specFeedLine: { fontFamily: font.medium, fontSize: type.base, marginBottom: 6, color: colors.onSurface2 },
+  specFeedLine: {
+    fontFamily: font.medium,
+    fontSize: type.base,
+    marginBottom: 6,
+    color: colors.onSurface2,
+  },
   specResultsBtn: {
     height: 52,
     borderRadius: radius.md,
@@ -1567,7 +2172,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: space.sm,
   },
-  specResultsText: { fontFamily: font.displayBold, fontSize: type.lg, color: "#fff", letterSpacing: 1 },
+  specResultsText: {
+    fontFamily: font.displayBold,
+    fontSize: type.lg,
+    color: "#fff",
+    letterSpacing: 1,
+  },
   specDoubleXpBtn: {
     height: 52,
     borderRadius: radius.md,
@@ -1577,7 +2187,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: space.sm,
   },
-  specDoubleXpText: { fontFamily: font.displayBold, fontSize: type.lg, color: colors.surface, letterSpacing: 0.5 },
+  specDoubleXpText: {
+    fontFamily: font.displayBold,
+    fontSize: type.lg,
+    color: colors.surface,
+    letterSpacing: 0.5,
+  },
   specDoubleXpDone: {
     height: 48,
     borderRadius: radius.md,
@@ -1589,5 +2204,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: space.sm,
   },
-  specDoubleXpDoneText: { fontFamily: font.displaySemi, fontSize: type.base, color: colors.success, letterSpacing: 0.5 },
+  specDoubleXpDoneText: {
+    fontFamily: font.displaySemi,
+    fontSize: type.base,
+    color: colors.success,
+    letterSpacing: 0.5,
+  },
 });
