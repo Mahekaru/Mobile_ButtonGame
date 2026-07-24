@@ -24,7 +24,11 @@ import { VictoryFX, ButtonFX, PressBurst } from "@/src/fx";
 import { levelForXp, rankName } from "@/src/progression";
 import { api, getToken, matchWsUrl } from "@/src/api";
 import { useAuth } from "@/src/auth";
-import { adsSupported, showRewardedInterstitial } from "@/src/ads";
+import {
+  adsSupported,
+  showInterstitialAd,
+  showRewardedAd,
+} from "@/src/ads";
 import { GlassCard, SkinSurface } from "@/src/ui";
 
 export default function MatchScreen() {
@@ -470,59 +474,102 @@ function LobbyView({ state, insets, onCancel, onStart }: any) {
     </View>
   );
 }
-
-// Shared ad-gated exit: shows the MANDATORY interstitial if 3 min have passed
-// since the last ad, otherwise exits straight away. Used by both the Results
-// "Continue" button and the Spectator "Leave to menu" button so they behave
-// identically.
 function useMandatoryAdExit(onExit: () => void) {
-  const { user } = useAuth();
   const [busy, setBusy] = useState(false);
   const [showAd, setShowAd] = useState(false);
   const [mandatoryDue, setMandatoryDue] = useState(false);
 
   useEffect(() => {
     let active = true;
+
     api
       .adsStatus()
-      .then((s) => {
-        if (active) setMandatoryDue(s.mandatory_due);
+      .then((status) => {
+        if (active) {
+          setMandatoryDue(status.mandatory_due);
+        }
       })
-      .catch(() => {});
+      .catch((error) => {
+        console.error(
+          "[Ads] Failed to retrieve mandatory ad status:",
+          error,
+        );
+      });
+
     return () => {
       active = false;
     };
   }, []);
 
-  const markAdSeen = async () => {
+  const markAdSeen = async (): Promise<boolean> => {
     try {
       await api.adsSeen();
-    } catch {
-      /* ignore */
+      return true;
+    } catch (error) {
+      console.error(
+        "[Ads] Failed to record interstitial as seen:",
+        error,
+      );
+
+      return false;
     }
   };
 
   const handleExit = async () => {
-    if (busy) return;
+    if (busy) {
+      return;
+    }
+
     if (!mandatoryDue) {
       onExit();
       return;
     }
+
     if (adsSupported) {
       setBusy(true);
-      await showRewardedInterstitial(user?.id || "guest"); // mandatory: no reward
-      await markAdSeen();
-      onExit();
+
+      try {
+        const outcome = await showInterstitialAd();
+
+        // Only reset the cooldown after the interstitial was actually
+        // displayed and closed.
+        if (outcome === "closed") {
+          await markAdSeen();
+        } else {
+          console.warn(
+            "[AdMob] Interstitial did not complete:",
+            outcome,
+          );
+        }
+      } finally {
+        setBusy(false);
+
+        // An unavailable ad should never trap the player on this screen.
+        onExit();
+      }
+
       return;
     }
+
+    // Expo Go and web use the simulated fallback.
     setShowAd(true);
   };
 
   const AdPortal = showAd ? (
-    <AdOverlay mode="mandatory" reward={0} onSkip={onExit} onClaim={markAdSeen} onProceed={onExit} />
+    <AdOverlay
+      mode="mandatory"
+      reward={0}
+      onSkip={onExit}
+      onClaim={markAdSeen}
+      onProceed={onExit}
+    />
   ) : null;
 
-  return { handleExit, busy, AdPortal };
+  return {
+    handleExit,
+    busy,
+    AdPortal,
+  };
 }
 
 // Opt-in DOUBLE-XP ad (offered at random when a match reward is available).
@@ -551,28 +598,70 @@ function useDoubleXpAd() {
     };
   }, []);
 
-  const claimAd = async () => {
-    try {
-      await api.claimAdReward();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch {
-      /* ignore */
-    }
-  };
+const claimAd = async (): Promise<boolean> => {
+  try {
+    await api.claimAdReward();
 
-  const handleDoubleXp = async () => {
-    if (busy) return;
-    if (adsSupported) {
-      setBusy(true);
-      const outcome = await showRewardedInterstitial(user?.id || "guest");
-      if (outcome === "earned") await claimAd();
+    Haptics.notificationAsync(
+      Haptics.NotificationFeedbackType.Success,
+    );
+
+    return true;
+  } catch (error) {
+    console.error(
+      "[Ads] Failed to apply Double XP reward:",
+      error,
+    );
+
+    return false;
+  }
+};
+
+const handleDoubleXp = async () => {
+  if (busy) {
+    return;
+  }
+
+  if (adsSupported) {
+    setBusy(true);
+
+    try {
+      const outcome = await showRewardedAd(
+        user?.id || "guest",
+      );
+
+      if (outcome === "earned") {
+        const rewardApplied = await claimAd();
+
+        if (rewardApplied) {
+          setOffered(false);
+          setClaimed(true);
+        }
+
+        return;
+      }
+
+      if (outcome === "closed") {
+        // The user closed the ad without earning the reward.
+        setOffered(false);
+        return;
+      }
+
+      // Keep the offer visible after an error so it can be retried.
+      console.warn(
+        "[AdMob] Rewarded ad did not complete:",
+        outcome,
+      );
+    } finally {
       setBusy(false);
-      setOffered(false);
-      setClaimed(true);
-      return;
     }
-    setShowAd(true);
-  };
+
+    return;
+  }
+
+  // Expo Go and web use the simulated fallback.
+  setShowAd(true);
+};
 
   const AdPortal = showAd ? (
     <AdOverlay
@@ -745,21 +834,37 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
     };
   }, []);
 
-  const claimAd = async () => {
-    try {
-      await api.claimAdReward();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch {
-      /* ignore */
-    }
-  };
-  const markAdSeen = async () => {
-    try {
-      await api.adsSeen();
-    } catch {
-      /* ignore */
-    }
-  };
+const claimAd = async (): Promise<boolean> => {
+  try {
+    await api.claimAdReward();
+
+    Haptics.notificationAsync(
+      Haptics.NotificationFeedbackType.Success,
+    );
+
+    return true;
+  } catch (error) {
+    console.error(
+      "[Ads] Failed to apply Double XP reward:",
+      error,
+    );
+
+    return false;
+  }
+};
+const markAdSeen = async (): Promise<boolean> => {
+  try {
+    await api.adsSeen();
+    return true;
+  } catch (error) {
+    console.error(
+      "[Ads] Failed to record interstitial as seen:",
+      error,
+    );
+
+    return false;
+  }
+};
 
   useEffect(() => {
     let active = true;
@@ -778,38 +883,87 @@ function ResultsView({ results, skinColor, username, oldXp, victoryAnim, onExit 
     };
   }, []);
 
-  // CONTINUE (always available): shows a mandatory ad if 3 min have passed
-  // since the last ad, otherwise goes straight to the lobby.
-  const handleContinue = async () => {
-    if (busy) return;
-    if (!mandatoryDue) {
+ const handleContinue = async () => {
+  if (busy) {
+    return;
+  }
+
+  if (!mandatoryDue) {
+    onExit();
+    return;
+  }
+
+  if (adsSupported) {
+    setBusy(true);
+
+    try {
+      const outcome = await showInterstitialAd();
+
+      if (outcome === "closed") {
+        await markAdSeen();
+      } else {
+        console.warn(
+          "[AdMob] Interstitial did not complete:",
+          outcome,
+        );
+      }
+    } finally {
+      setBusy(false);
       onExit();
-      return;
     }
-    if (adsSupported) {
-      setBusy(true);
-      await showRewardedInterstitial(user?.id || "guest"); // mandatory: no reward
-      await markAdSeen();
-      onExit();
-      return;
-    }
-    setAdMode("mandatory");
-    setShowAd(true);
-  };
+
+    return;
+  }
+
+  setAdMode("mandatory");
+  setShowAd(true);
+};
 
   // DOUBLE XP (offered at random): opt-in ad. Watch = double XP, skip = nothing.
-  const handleDoubleXp = async () => {
-    if (busy) return;
-    if (adsSupported) {
-      setBusy(true);
-      const outcome = await showRewardedInterstitial(user?.id || "guest");
-      if (outcome === "earned") await claimAd();
-      onExit();
-      return;
+const handleDoubleXp = async () => {
+  if (busy) {
+    return;
+  }
+
+  if (adsSupported) {
+    setBusy(true);
+
+    try {
+      const outcome = await showRewardedAd(
+        user?.id || "guest",
+      );
+
+      if (outcome === "earned") {
+        const rewardApplied = await claimAd();
+
+        if (rewardApplied) {
+          onExit();
+        }
+
+        return;
+      }
+
+      if (outcome === "closed") {
+        // The player skipped the reward, so leave without extra XP.
+        onExit();
+        return;
+      }
+
+      // Stay on the results screen after an error so the player can retry.
+      console.warn(
+        "[AdMob] Rewarded ad did not complete:",
+        outcome,
+      );
+    } finally {
+      setBusy(false);
     }
-    setAdMode("double");
-    setShowAd(true);
-  };
+
+    return;
+  }
+
+  setAdMode("double");
+  setShowAd(true);
+};
 
   const share = async () => {
     if (sharing) return;
@@ -977,17 +1131,33 @@ function AdOverlay({ mode, reward, onSkip, onClaim, onProceed }: any) {
     return () => clearInterval(iv);
   }, []);
   const done = left <= 0;
-  const act = async () => {
-    if (busy) return;
-    setBusy(true);
-    await onClaim();
-    if (mandatory) {
-      onProceed();
-    } else {
-      setClaimed(true);
-      setTimeout(onProceed, 1300);
-    }
-  };
+
+const act = async () => {
+  if (busy) {
+    return;
+  }
+
+  setBusy(true);
+
+  const claimSucceeded = await onClaim();
+
+  if (mandatory) {
+    // Never trap the player because the tracking endpoint failed.
+    onProceed();
+    return;
+  }
+
+  if (claimSucceeded === false) {
+    // Reward was not applied. Keep the simulated ad open so the
+    // player is not falsely told that Double XP succeeded.
+    setBusy(false);
+    return;
+  }
+
+  setClaimed(true);
+  setTimeout(onProceed, 1300);
+};
+
   return (
     <Animated.View entering={FadeIn.duration(200)} style={styles.adWrap} testID="ad-overlay">
       <View style={styles.adCard}>
