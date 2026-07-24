@@ -1,5 +1,6 @@
 // Lightweight in-match victory particle effects (confetti / fireworks / gold rain).
 import React, { useEffect } from "react";
+import type { SharedValue } from "react-native-reanimated";
 import { View, StyleSheet, Dimensions } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
@@ -94,7 +95,11 @@ export function VictoryFX({ type }: { type?: string }) {
 // types: "glow" (pulsing halo), "fire" (rising flames), "electric" (spinning arc)
 // ---------------------------------------------------------------------------
 const FIRE_COUNT = 20;
-const FIRE_GRAD = ["#FFE39A", "#FF9500", "#FF3B30"];
+const FIRE_GRAD = [
+  "#FFE39A",
+  "#FF9500",
+  "#FF3B30",
+] as const;
 
 function Layer({ children }: { children: React.ReactNode }) {
   return (
@@ -114,7 +119,15 @@ const GLOW_LAYERS = [
   { f: 1.02, color: "rgba(255,196,96,0.46)" },
 ];
 
-function GlowDisc({ t, discSize, color }: { t: Animated.SharedValue<number>; discSize: number; color: string }) {
+function GlowDisc({
+  t,
+  discSize,
+  color,
+}: {
+  t: SharedValue<number>;
+  discSize: number;
+  color: string;
+}) {
   const style = useAnimatedStyle(() => ({
     transform: [{ scale: interpolate(t.value, [0, 1], [0.8, 1.18]) }],
     opacity: interpolate(t.value, [0, 1], [0.4, 1]),
@@ -129,7 +142,13 @@ function GlowDisc({ t, discSize, color }: { t: Animated.SharedValue<number>; dis
 }
 
 // Bright ring hugging the button edge — reads as light leaking out of the seams.
-function GlowRim({ t, discSize }: { t: Animated.SharedValue<number>; discSize: number }) {
+function GlowRim({
+  t,
+  discSize,
+}: {
+  t: SharedValue<number>;
+  discSize: number;
+}) {
   const style = useAnimatedStyle(() => ({
     opacity: interpolate(t.value, [0, 1], [0.35, 0.95]),
     transform: [{ scale: interpolate(t.value, [0, 1], [0.98, 1.07]) }],
@@ -299,7 +318,7 @@ function BurstSpark({
   total,
 }: {
   index: number;
-  p: Animated.SharedValue<number>;
+  p: SharedValue<number>;
   color: string;
   total: number;
 }) {

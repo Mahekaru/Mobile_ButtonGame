@@ -208,7 +208,7 @@ export async function showRewardedAd(
     let settled = false;
     let earned = false;
 
-    const subscriptions: Array<() => void> = [];
+    const subscriptions: (() => void)[] = [];
 
     const cleanup = () => {
       subscriptions.splice(0).forEach((unsubscribe) => {
@@ -350,7 +350,7 @@ export async function showInterstitialAd(): Promise<InterstitialResult> {
 
     let settled = false;
 
-    const subscriptions: Array<() => void> = [];
+    const subscriptions: (() => void)[] = [];
 
     const cleanup = () => {
       subscriptions.splice(0).forEach((unsubscribe) => {

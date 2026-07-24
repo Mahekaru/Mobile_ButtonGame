@@ -501,7 +501,7 @@ function LobbyView({ state, insets, onCancel, onStart }: any) {
   const fill = useSharedValue(0);
   useEffect(() => {
     fill.value = withTiming(progress, { duration: 450 });
-  }, [progress]);
+  }, [fill, progress]);
   const fillStyle = useAnimatedStyle(() => ({ width: `${fill.value * 100}%` }));
 
   return (
@@ -818,7 +818,7 @@ function SpectatorView({ state, insets, onViewResults, onExit }: any) {
 
         <View style={styles.specHero}>
           <MaterialCommunityIcons name="skull" size={38} color={colors.red} />
-          <Text style={styles.specOut}>YOU'RE OUT</Text>
+          <Text style={styles.specOut}>YOU&apos;RE OUT</Text>
           {placement ?
             <Text style={styles.specPlace} testID="spectator-placement">
               Out at #{placement} of 100
