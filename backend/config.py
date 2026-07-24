@@ -360,7 +360,12 @@ DAILY_STREAK_BONUS = 25   # per consecutive day (capped by streak %7)
 WEEKLY_XP = 350           # every 7th consecutive day
 
 # Rewarded ads
-AD_COOLDOWN_SEC = 180     # no bonus ad for 3 minutes after finishing one
+# Full-screen ad cadence.
+#
+# This controls when the app may show its next natural interstitial.
+# Completing either an interstitial or an opt-in rewarded ad resets it,
+# preventing two full-screen ads from appearing back to back.
+FULLSCREEN_AD_COOLDOWN_SEC = 180
 
 
 # ---------------------------------------------------------------------------

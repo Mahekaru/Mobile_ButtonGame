@@ -284,23 +284,77 @@ def _now_ts() -> float:
     return datetime.now(timezone.utc).timestamp()
 
 
-def _ad_state(user: dict) -> dict:
-    last_ad = user.get("last_ad_at")
-    since = (_now_ts() - last_ad) if last_ad else None
-    mandatory_due = since is None or since >= C.AD_COOLDOWN_SEC
-    cooldown_remaining = 0 if mandatory_due else round(C.AD_COOLDOWN_SEC - since)
-    reward = user.get("last_match_xp", 0)
-    already = (user.get("last_match_id") is not None
-               and user.get("ad_claimed_for") == user.get("last_match_id"))
-    reward_available = reward > 0 and not already
+def _fullscreen_ad_state(user: dict) -> dict:
+    """Return the state for naturally displayed interstitial ads.
+
+    A successful rewarded ad also updates last_ad_at. This intentionally
+    prevents a natural interstitial from appearing immediately after the
+    player has watched a Double-XP ad.
+    """
+    last_fullscreen_ad_at = user.get("last_ad_at")
+
+    elapsed = (
+        _now_ts() - last_fullscreen_ad_at
+        if last_fullscreen_ad_at is not None
+        else None
+    )
+
+    interstitial_due = (
+        elapsed is None
+        or elapsed >= C.FULLSCREEN_AD_COOLDOWN_SEC
+    )
+
+    cooldown_remaining = (
+        0
+        if interstitial_due
+        else max(
+            0,
+            round(C.FULLSCREEN_AD_COOLDOWN_SEC - elapsed),
+        )
+    )
+
     return {
-        "mandatory_due": mandatory_due,
+        # Keep the existing API field name so the frontend does not break.
+        "mandatory_due": interstitial_due,
         "cooldown_remaining": cooldown_remaining,
+    }
+
+
+def _rewarded_ad_state(user: dict) -> dict:
+    """Return the state for the opt-in Double-XP rewarded ad."""
+    reward = max(
+        0,
+        int(user.get("last_match_xp") or 0),
+    )
+
+    last_match_id = user.get("last_match_id")
+
+    already_claimed = (
+        last_match_id is not None
+        and user.get("ad_claimed_for") == last_match_id
+    )
+
+    reward_available = (
+        reward > 0
+        and not already_claimed
+    )
+
+    return {
         "reward": reward,
         "reward_available": reward_available,
-        # kept for backward-compat with older clients
+
+        # Retained for compatibility with older clients.
         "can_watch": reward_available,
-        "already_claimed": already,
+
+        "already_claimed": already_claimed,
+    }
+
+
+def _ad_state(user: dict) -> dict:
+    """Return the combined public ad status response."""
+    return {
+        **_fullscreen_ad_state(user),
+        **_rewarded_ad_state(user),
     }
 
 
@@ -319,10 +373,10 @@ async def ads_seen(user: dict = Depends(get_current_user)):
 
 @api_router.post("/ads/reward")
 async def ads_reward(user: dict = Depends(get_current_user)):
-    state = _ad_state(user)
-    if not state["reward_available"]:
+    reward_state = _rewarded_ad_state(user)
+    if not reward_state["reward_available"]:
         raise HTTPException(status_code=400, detail="No reward available")
-    reward = state["reward"]
+    reward = reward_state["reward"]
     new_xp = user.get("xp", 0) + reward
     await db.users.update_one(
         {"_id": user["_id"]},
