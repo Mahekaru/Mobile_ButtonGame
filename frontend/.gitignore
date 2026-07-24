@@ -95,3 +95,4 @@ expo-env.d.ts
 # @end expo-cli
 frontend/.metro-cache/*
 .expo
+/android

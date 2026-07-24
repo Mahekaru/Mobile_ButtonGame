@@ -91,3 +91,4 @@ backup/.env*
 frontend/app.json
 frontend/.metro-cache/*
 frontend/android/*
+button-game-android-backup/*
