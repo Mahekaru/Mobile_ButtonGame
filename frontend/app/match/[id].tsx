@@ -754,10 +754,18 @@ function useDoubleXpAd() {
         }
 
         if (outcome === "closed") {
-          // The user closed the ad without earning the reward.
-          setOffered(false);
-          return;
-        }
+          try {
+            await api.adsSeen();
+          } catch (error) {
+            console.error(
+              "[Ads] Failed to record rewarded ad as seen:",
+              error,
+            );
+          }
+
+        setOffered(false);
+        return;
+      }
 
         // Keep the offer visible after an error so it can be retried.
         console.warn("[AdMob] Rewarded ad did not complete:", outcome);
@@ -1116,7 +1124,9 @@ const handleContinue = async () => {
         }
 
         if (outcome === "closed") {
-          // The player skipped the reward, so leave without extra XP.
+          // The ad displayed, but the player did not earn Double XP.
+          // Reset the shared timer to prevent an immediate interstitial.
+          await markAdSeen();
           onExit();
           return;
         }
